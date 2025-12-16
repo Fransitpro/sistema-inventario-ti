@@ -1,0 +1,197 @@
+/* --- ESTILOS GENERALES Y DE FONDO --- */
+body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif; /* Fuente profesional de Google Fonts */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #f4f7f6; /* Un fondo gris claro para que resalte el contenedor */
+    color: #333;
+}
+
+/* --- CONTENEDOR PRINCIPAL --- */
+.login-container {
+    display: flex;
+    background-color: #fff;
+    border-radius: 15px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    width: 900px;
+    max-width: 95vw;
+    min-height: 550px;
+}
+
+/* --- SECCIÓN DE BIENVENIDA (IZQUIERDA) --- */
+.welcome-section {
+    flex: 1;
+    background: linear-gradient(135deg, #4A00E0, #8E2DE2); /* Degradado morado */
+    color: white;
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    position: relative;
+}
+
+.welcome-section .logo {
+    /* Agregamos estos estilos al contenedor del logo para definir su área */
+    width: 180px;  /* Ancho aproximado del recuadro rojo */
+    height: 100px; /* Alto aproximado del recuadro rojo */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 25px; /* Mantenemos el margen inferior */
+    /* Puedes añadir un borde temporal para ver el área si lo necesitas:
+    border: 2px dashed rgba(255,255,255,0.5); */
+}
+
+.welcome-section .logo img {
+    max-width: 100%; /* La imagen no excederá el ancho de su contenedor (.logo) */
+    max-height: 100%; /* La imagen no excederá el alto de su contenedor (.logo) */
+    object-fit: contain; /* Asegura que la imagen se vea completa dentro de los límites */
+    /* La siguiente línea se mantiene comentada para solucionar el problema de visibilidad del logo */
+    /* filter: brightness(0) invert(1); */
+}
+
+.welcome-section h1 {
+    font-size: 2.5em;
+    font-weight: 700;
+    margin: 0 0 15px 0;
+}
+
+.welcome-section p {
+    font-size: 1em;
+    font-weight: 300;
+    max-width: 85%;
+    line-height: 1.6;
+}
+
+/* --- SECCIÓN DEL FORMULARIO (DERECHA) --- */
+.form-section {
+    flex: 1;
+    background-color: #fff;
+    padding: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.form-box {
+    width: 100%;
+    max-width: 360px;
+}
+
+.form-box h2 {
+    text-align: center;
+    margin-bottom: 35px;
+    color: #333;
+    font-size: 2em;
+    font-weight: 600;
+}
+
+.input-group {
+    margin-bottom: 25px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    box-sizing: border-box;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #8E2DE2;
+    box-shadow: 0 0 0 3px rgba(142, 45, 226, 0.1);
+}
+
+.options-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    font-size: 0.85em;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: #555;
+}
+
+.remember-me input {
+    margin-right: 8px;
+}
+
+.forgot-password {
+    color: #8E2DE2;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.forgot-password:hover {
+    text-decoration: underline;
+}
+
+.btn-login {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+    background-color: #8E2DE2;
+    color: white;
+}
+
+.btn-login:hover {
+    background-color: #7d1bc9;
+    transform: translateY(-2px);
+}
+
+.signup-link {
+    text-align: center;
+    margin-top: 25px;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.signup-link a {
+    color: #8E2DE2;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* --- RESPONSIVIDAD PARA MÓVILES --- */
+@media (max-width: 800px) {
+    .login-container {
+        flex-direction: column;
+        width: 100%;
+        max-width: 450px;
+        min-height: auto;
+        margin: 20px;
+    }
+
+    .welcome-section {
+        padding: 40px 20px;
+        border-radius: 15px 15px 0 0;
+    }
+}

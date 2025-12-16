@@ -1,0 +1,9 @@
+/vendor/
+/node_modules/
+.env
+.DS_Store
+Thumbs.db
+*.log
+# Si tienes carpetas de imágenes subidas por usuarios que no quieres en el repo:
+/public/uploads/*
+!/public/uploads/.gitkeep
