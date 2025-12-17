@@ -1,5 +1,5 @@
 <?php
-// 1. LÓGICA DE NEGOCIO (ANTES DE CUALQUIER HTML)
+// 1. INICIO DE SESIÓN SEGURO
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -45,14 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tipo_mensaje = "warning";
         } else {
             // INSERTAR DATOS COMPLETOS
-            // Asegúrate de que tu tabla 'equipos' tenga estas columnas. Si no, agrégalas en HeidiSQL.
             $sql = "INSERT INTO equipos (
                         codigo_inventario, numero_serie, id_sucursal, id_tipo_equipo, id_marca, id_modelo, 
                         fecha_adquisicion, tipo_adquisicion, caracteristicas, proveedor, observaciones, estado
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $conexion->prepare($sql);
-            // "ssiiiissssss" -> s=string, i=integer
             $stmt->bind_param("ssiiiissssss", 
                 $codigo, $serie, $id_sucursal, $id_tipo, $id_marca, $id_modelo, 
                 $fecha, $tipo_adq, $caracteristicas, $proveedor, $observaciones, $estado
@@ -71,14 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// 2. INCLUIR HEADER DESPUÉS DE LA LÓGICA
+// 2. INCLUIR HEADER
 require_once '../templates/header.php';
 
-// Consultas para llenar los selectores
+// Consultas para llenar los selectores (Modelos se carga vía AJAX ahora)
 $sucursales = $conexion->query("SELECT id, nombre FROM sucursales WHERE estado = 'Activo' ORDER BY nombre");
 $tipos = $conexion->query("SELECT id, nombre FROM tipos_equipo WHERE estado = 'Activo' ORDER BY nombre");
 $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo' ORDER BY nombre");
-$modelos = $conexion->query("SELECT id, nombre FROM modelos WHERE estado = 'Activo' ORDER BY nombre");
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -136,23 +133,24 @@ $modelos = $conexion->query("SELECT id, nombre FROM modelos WHERE estado = 'Acti
                         <?php if($tipos) { mysqli_data_seek($tipos,0); while($r=$tipos->fetch_assoc()){echo "<option value='{$r['id']}'>{$r['nombre']}</option>";}} ?>
                     </select>
                 </div>
+                
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Marca <span class="text-danger">*</span></label>
-                    <select class="form-select" name="id_marca" required>
+                    <select class="form-select" name="id_marca" id="id_marca" required>
                         <option value="">Seleccione...</option>
                         <?php if($marcas) { mysqli_data_seek($marcas,0); while($r=$marcas->fetch_assoc()){echo "<option value='{$r['id']}'>{$r['nombre']}</option>";}} ?>
                     </select>
                 </div>
+
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Modelo</label>
-                    <select class="form-select" name="id_modelo">
-                        <option value="">Seleccione una marca primero (o modelo general)</option>
-                        <?php if($modelos) { mysqli_data_seek($modelos,0); while($r=$modelos->fetch_assoc()){echo "<option value='{$r['id']}'>{$r['nombre']}</option>";}} ?>
+                    <select class="form-select" name="id_modelo" id="id_modelo">
+                        <option value="">Seleccione una marca primero</option>
                     </select>
                 </div>
 
                 <div class="col-md-6">
-                    <label class="form-label fw-bold">Tipo de Adquisición <span class="text-danger">*</span></label>
+                    <label class="form-label fw-bold">Tipo de Adquisición</label>
                     <select class="form-select" name="tipo_adquisicion">
                         <option value="Propio">Propio</option>
                         <option value="Alquilado">Alquilado</option>
@@ -192,3 +190,30 @@ $modelos = $conexion->query("SELECT id, nombre FROM modelos WHERE estado = 'Acti
 </div>
 
 <?php require_once '../templates/footer.php'; ?>
+
+<script>
+$(document).ready(function() {
+    $('#id_marca').on('change', function() {
+        var idMarca = $(this).val();
+        
+        // Limpiar y mostrar "Cargando..."
+        $('#id_modelo').html('<option value="">Cargando modelos...</option>');
+
+        if (idMarca) {
+            $.ajax({
+                url: 'obtener_modelos.php',
+                type: 'POST',
+                data: { id_marca: idMarca },
+                success: function(response) {
+                    $('#id_modelo').html(response);
+                },
+                error: function() {
+                    $('#id_modelo').html('<option value="">Error al cargar modelos</option>');
+                }
+            });
+        } else {
+            $('#id_modelo').html('<option value="">Seleccione una marca primero</option>');
+        }
+    });
+});
+</script>

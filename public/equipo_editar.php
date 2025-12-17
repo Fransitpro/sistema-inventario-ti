@@ -1,5 +1,5 @@
 <?php
-// 1. LÓGICA DE NEGOCIO AL PRINCIPIO
+// 1. LÓGICA DE NEGOCIO PRIMERO
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -21,7 +21,6 @@ $tipo_mensaje = '';
 
 // 2. PROCESAR ACTUALIZACIÓN
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Recibir todos los campos
     $id_sucursal = $_POST['id_sucursal'];
     $codigo = trim($_POST['codigo_inventario']);
     $serie = trim($_POST['numero_serie']);
@@ -34,12 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $proveedor = trim($_POST['proveedor']);
     $observaciones = trim($_POST['observaciones']);
     
-    // Validación
     if (empty($codigo) || empty($id_sucursal) || empty($id_tipo) || empty($id_marca)) {
         $mensaje = "Por favor complete los campos obligatorios.";
         $tipo_mensaje = "danger";
     } else {
-        // Check duplicado
         $check = $conexion->prepare("SELECT id FROM equipos WHERE codigo_inventario = ? AND id != ?");
         $check->bind_param("si", $codigo, $id_equipo);
         $check->execute();
@@ -49,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mensaje = "El código de inventario ya existe.";
             $tipo_mensaje = "warning";
         } else {
-            // ACTUALIZAR TODOS LOS CAMPOS
             $sql = "UPDATE equipos SET 
                     codigo_inventario = ?, 
                     numero_serie = ?, 
@@ -65,7 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE id = ?";
             
             $stmt = $conexion->prepare($sql);
-            // "ssiiiisssssi"
             $stmt->bind_param("ssiiiisssssi", 
                 $codigo, $serie, $id_sucursal, $id_tipo, $id_marca, $id_modelo, 
                 $fecha, $tipo_adq, $caracteristicas, $proveedor, $observaciones, $id_equipo
@@ -99,11 +94,17 @@ if (!$equipo) {
 
 require_once '../templates/header.php';
 
-// Cargar catálogos
+// CARGAR CATÁLOGOS
 $sucursales = $conexion->query("SELECT id, nombre FROM sucursales WHERE estado = 'Activo' ORDER BY nombre");
 $tipos = $conexion->query("SELECT id, nombre FROM tipos_equipo WHERE estado = 'Activo' ORDER BY nombre");
 $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo' ORDER BY nombre");
-$modelos = $conexion->query("SELECT id, nombre FROM modelos WHERE estado = 'Activo' ORDER BY nombre");
+
+// CORRECCIÓN: Cargar solo los modelos de la marca actual para la vista inicial
+$id_marca_actual = $equipo['id_marca'];
+$stmt_modelos = $conexion->prepare("SELECT id, nombre FROM modelos WHERE id_marca = ? AND estado = 'Activo' ORDER BY nombre");
+$stmt_modelos->bind_param("i", $id_marca_actual);
+$stmt_modelos->execute();
+$modelos = $stmt_modelos->get_result();
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -174,9 +175,10 @@ $modelos = $conexion->query("SELECT id, nombre FROM modelos WHERE estado = 'Acti
                         ?>
                     </select>
                 </div>
+                
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Marca <span class="text-danger">*</span></label>
-                    <select class="form-select" name="id_marca" required>
+                    <select class="form-select" name="id_marca" id="id_marca" required>
                         <option value="">Seleccione...</option>
                         <?php 
                         if ($marcas) {
@@ -189,17 +191,19 @@ $modelos = $conexion->query("SELECT id, nombre FROM modelos WHERE estado = 'Acti
                         ?>
                     </select>
                 </div>
+
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Modelo</label>
-                    <select class="form-select" name="id_modelo">
+                    <select class="form-select" name="id_modelo" id="id_modelo">
                         <option value="">Seleccione...</option>
                         <?php 
-                        if ($modelos) {
-                            mysqli_data_seek($modelos, 0);
+                        if ($modelos && $modelos->num_rows > 0) {
                             while ($row = $modelos->fetch_assoc()) {
                                 $sel = ($equipo['id_modelo'] == $row['id']) ? 'selected' : '';
                                 echo "<option value='{$row['id']}' $sel>{$row['nombre']}</option>";
                             }
+                        } else {
+                            echo "<option value=''>Sin modelos para esta marca</option>";
                         }
                         ?>
                     </select>
@@ -246,3 +250,29 @@ $modelos = $conexion->query("SELECT id, nombre FROM modelos WHERE estado = 'Acti
 </div>
 
 <?php require_once '../templates/footer.php'; ?>
+
+<script>
+$(document).ready(function() {
+    $('#id_marca').on('change', function() {
+        var idMarca = $(this).val();
+        
+        $('#id_modelo').html('<option value="">Cargando modelos...</option>');
+
+        if (idMarca) {
+            $.ajax({
+                url: 'obtener_modelos.php',
+                type: 'POST',
+                data: { id_marca: idMarca },
+                success: function(response) {
+                    $('#id_modelo').html(response);
+                },
+                error: function() {
+                    $('#id_modelo').html('<option value="">Error al cargar modelos</option>');
+                }
+            });
+        } else {
+            $('#id_modelo').html('<option value="">Seleccione una marca primero</option>');
+        }
+    });
+});
+</script>

@@ -1,14 +1,15 @@
 <?php
-session_start();
-// Redirigir al login si el usuario no ha iniciado sesión
+// Solo iniciar sesión si no está activa
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
-// Incluir conexión a la base de datos
 require_once __DIR__ . '/../config/database.php';
 
-// Cargar la configuración del sistema en la sesión
 if (!isset($_SESSION['configuracion'])) {
     $_SESSION['configuracion'] = [];
     $sql_config = "SELECT clave, valor FROM configuracion";
@@ -20,7 +21,6 @@ if (!isset($_SESSION['configuracion'])) {
     }
 }
 
-// Obtener nombre de archivo actual
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 <!DOCTYPE html>
@@ -37,9 +37,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
 </head>
 <body>
 
-<header class="mobile-header d-lg-none bg-primary text-white p-2 d-flex align-items-center">
-    <button class="btn text-white me-2" type="button" id="menu-toggle">
-        <i class="bi bi-list fs-3"></i>
+<div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+<header class="mobile-header d-lg-none bg-primary text-white p-3 d-flex align-items-center shadow-sm sticky-top">
+    <button class="btn text-white me-3 p-0 border-0" type="button" id="menu-toggle">
+        <i class="bi bi-list fs-1"></i>
     </button>
     <span class="fs-4 fw-bold">Inventario TI</span>
 </header>
@@ -112,7 +114,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </li>
         <li>
             <a href="reset_system.php" class="nav-link text-danger <?php if($current_page == 'reset_system.php') echo 'active bg-danger text-white'; ?>" style="font-weight: 600;">
-                <i class="bi bi-exclamation-triangle"></i> Restablecer Sistema
+                <i class="bi bi-exclamation-triangle"></i> Restablecer
             </a>
         </li>
         <?php endif; ?>

@@ -1,39 +1,26 @@
 <?php
-// Incluir conexión a la base de datos
 require_once '../config/database.php';
 
-// Configurar cabecera para JSON
-header('Content-Type: application/json');
-$response = []; // Array para la respuesta
+// Validar si se recibió el ID del área
+if (isset($_POST['id_area'])) {
+    $id_area = (int)$_POST['id_area'];
 
-// Validar que se recibió el id_area y es un número
-if (!isset($_GET['id_area']) || !is_numeric($_GET['id_area'])) {
-    echo json_encode(['error' => 'ID de área no válido']);
-    exit;
-}
-
-$id_area = (int)$_GET['id_area'];
-
-// Preparar la consulta para obtener los cargos activos de esa área
-// Asegúrate de que tus columnas se llamen 'id', 'nombre'
-$sql = "SELECT id, nombre FROM cargos WHERE id_area = ? AND estado = 'Activo' ORDER BY nombre";
-$stmt = $conexion->prepare($sql);
-
-if ($stmt) {
+    // Consultar cargos activos de esa área
+    $stmt = $conexion->prepare("SELECT id, nombre FROM cargos WHERE id_area = ? AND estado = 'Activo' ORDER BY nombre");
     $stmt->bind_param("i", $id_area);
-    if ($stmt->execute()) {
-        $resultado = $stmt->get_result();
-        while ($fila = $resultado->fetch_assoc()) {
-            $response[] = $fila; // Añadir cada cargo al array
+    $stmt->execute();
+    $resultado = $stmt->get_result();
+
+    if ($resultado->num_rows > 0) {
+        echo '<option value="">Seleccione un cargo...</option>';
+        while ($row = $resultado->fetch_assoc()) {
+            echo '<option value="' . $row['id'] . '">' . htmlspecialchars($row['nombre']) . '</option>';
         }
     } else {
-        $response = ['error' => 'Error al ejecutar consulta: ' . $stmt->error];
+        echo '<option value="">No hay cargos registrados para esta área</option>';
     }
     $stmt->close();
 } else {
-    $response = ['error' => 'Error al preparar consulta: ' . $conexion->error];
+    echo '<option value="">Seleccione un área primero</option>';
 }
-
-// Devolver el array de respuesta codificado como JSON
-echo json_encode($response);
 ?>

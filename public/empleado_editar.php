@@ -1,193 +1,238 @@
 <?php
-require_once '../templates/header.php';
+// 1. LÓGICA DE NEGOCIO (ANTES DE HTML)
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once '../config/database.php';
 
-// 1. Validar el ID del empleado
-$id_empleado = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-if (!$id_empleado) {
-    echo '<div class="alert alert-danger">Error: ID de empleado no válido.</div>';
-    require_once '../templates/footer.php';
+// Validar sesión
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
     exit();
 }
 
-// 2. Lógica para procesar la ACTUALIZACIÓN (cuando se guarda)
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Recoger datos del formulario
-    $id_sucursal = $_POST['id_sucursal'] ?? null;
-    $dni = trim($_POST['dni'] ?? '');
-    $nombres = trim($_POST['nombres'] ?? '');
-    $apellidos = trim($_POST['apellidos'] ?? '');
-    $id_area = $_POST['id_area'] ?? null;
-    $id_cargo = $_POST['id_cargo'] ?? null;
-    $estado = $_POST['estado'] ?? 'Activo';
+// Validar ID
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+    header("Location: empleados.php");
+    exit();
+}
 
-    // Validación
-    if (empty($id_sucursal) || empty($dni) || empty($nombres) || empty($apellidos) || empty($id_area) || empty($id_cargo)) {
-        $error_message = "Error: Todos los campos marcados con * son obligatorios.";
+$id_empleado = (int)$_GET['id'];
+$mensaje = '';
+$tipo_mensaje = '';
+
+// 2. PROCESAR ACTUALIZACIÓN
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id_sucursal = $_POST['id_sucursal'];
+    $dni = trim($_POST['dni']);
+    $nombres = trim($_POST['nombres']);
+    $apellidos = trim($_POST['apellidos']);
+    $id_area = $_POST['id_area'];
+    $id_cargo = $_POST['id_cargo']; // Este vendrá actualizado del select dinámico
+    $estado = $_POST['estado'];
+
+    if (empty($dni) || empty($nombres) || empty($apellidos) || empty($id_sucursal)) {
+        $mensaje = "Por favor complete los campos obligatorios.";
+        $tipo_mensaje = "danger";
     } else {
-        // Preparar y ejecutar la actualización
-        $sql_update = "UPDATE empleados SET id_sucursal = ?, dni = ?, nombres = ?, apellidos = ?, id_area = ?, id_cargo = ?, estado = ? WHERE id = ?";
-        $stmt_update = $conexion->prepare($sql_update);
-        $stmt_update->bind_param("isssiisi", $id_sucursal, $dni, $nombres, $apellidos, $id_area, $id_cargo, $estado, $id_empleado);
-        
-        if ($stmt_update->execute()) {
-            header("Location: empleados.php?status=empleado_editado");
-            exit();
+        $check = $conexion->prepare("SELECT id FROM empleados WHERE dni = ? AND id != ?");
+        $check->bind_param("si", $dni, $id_empleado);
+        $check->execute();
+        $check->store_result();
+
+        if ($check->num_rows > 0) {
+            $mensaje = "El DNI ya está registrado por otro empleado.";
+            $tipo_mensaje = "warning";
         } else {
-            $error_message = "Error al actualizar el empleado: " . $stmt_update->error;
+            $sql = "UPDATE empleados SET 
+                    id_sucursal = ?, 
+                    dni = ?, 
+                    nombres = ?, 
+                    apellidos = ?, 
+                    id_area = ?, 
+                    id_cargo = ?, 
+                    estado = ? 
+                    WHERE id = ?";
+            
+            $stmt = $conexion->prepare($sql);
+            $stmt->bind_param("isssiisi", $id_sucursal, $dni, $nombres, $apellidos, $id_area, $id_cargo, $estado, $id_empleado);
+
+            if ($stmt->execute()) {
+                header("Location: empleados.php?msg=actualizado");
+                exit();
+            } else {
+                $mensaje = "Error al actualizar: " . $conexion->error;
+                $tipo_mensaje = "danger";
+            }
+            $stmt->close();
         }
-        $stmt_update->close();
+        $check->close();
     }
 }
 
-// 3. Cargar datos actuales del empleado para pre-llenar el formulario
-$stmt_select = $conexion->prepare("SELECT * FROM empleados WHERE id = ?");
-$stmt_select->bind_param("i", $id_empleado);
-$stmt_select->execute();
-$empleado = $stmt_select->get_result()->fetch_assoc();
-$stmt_select->close();
+// 3. OBTENER DATOS ACTUALES
+$stmt = $conexion->prepare("SELECT * FROM empleados WHERE id = ?");
+$stmt->bind_param("i", $id_empleado);
+$stmt->execute();
+$empleado = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
 if (!$empleado) {
-    echo '<div class="alert alert-warning">Empleado no encontrado.</div>';
-    require_once '../templates/footer.php';
+    header("Location: empleados.php?msg=no_encontrado");
     exit();
 }
 
-// 4. Cargar catálogos para los dropdowns
+require_once '../templates/header.php';
+
+// CARGAR LISTAS PARA SELECTS
 $sucursales = $conexion->query("SELECT id, nombre FROM sucursales WHERE estado = 'Activo' ORDER BY nombre");
 $areas = $conexion->query("SELECT id, nombre FROM areas WHERE estado = 'Activo' ORDER BY nombre");
-// Cargar los cargos que pertenecen al área actual del empleado
-$cargos_actuales = $conexion->query("SELECT id, nombre FROM cargos WHERE id_area = " . (int)$empleado['id_area'] . " AND estado = 'Activo' ORDER BY nombre");
 
+// PRECARGA INTELIGENTE DE CARGOS:
+// Cargamos SOLO los cargos que pertenecen al área actual del empleado
+$id_area_actual = $empleado['id_area'];
+$stmt_cargos = $conexion->prepare("SELECT id, nombre FROM cargos WHERE id_area = ? AND estado = 'Activo' ORDER BY nombre");
+$stmt_cargos->bind_param("i", $id_area_actual);
+$stmt_cargos->execute();
+$cargos = $stmt_cargos->get_result();
 ?>
 
-<h1 class="h2 mb-4">Editar Empleado</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Editar Empleado</h1>
+    <a href="empleados.php" class="btn btn-secondary">
+        <i class="bi bi-arrow-left me-2"></i> Volver
+    </a>
+</div>
 
-<?php if (isset($error_message)): ?>
-    <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
+<?php if (!empty($mensaje)): ?>
+    <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show shadow-sm" role="alert">
+        <?php echo $mensaje; ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 <?php endif; ?>
 
-<div class="card">
-    <div class="card-header">
-        Datos del Empleado
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 text-primary fw-bold"><i class="bi bi-person-lines-fill me-2"></i> Modificar Datos</h5>
     </div>
-    <div class="card-body">
+    <div class="card-body p-4">
         <form action="empleado_editar.php?id=<?php echo $id_empleado; ?>" method="POST">
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label for="id_sucursal" class="form-label">Sucursal *</label>
-                    <select class="form-select" id="id_sucursal" name="id_sucursal" required>
-                        <option value="">Seleccione sucursal...</option>
-                        <?php if ($sucursales): while ($s = $sucursales->fetch_assoc()): ?>
-                            <option value="<?php echo $s['id']; ?>" <?php if ($s['id'] == $empleado['id_sucursal']) echo 'selected'; ?>>
-                                <?php echo htmlspecialchars($s['nombre']); ?>
-                            </option>
-                        <?php endwhile; endif; ?>
+            <div class="row g-3">
+                
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Sucursal <span class="text-danger">*</span></label>
+                    <select class="form-select" name="id_sucursal" required>
+                        <option value="">Seleccione...</option>
+                        <?php 
+                        if ($sucursales) {
+                            mysqli_data_seek($sucursales, 0);
+                            while ($row = $sucursales->fetch_assoc()) {
+                                $sel = ($empleado['id_sucursal'] == $row['id']) ? 'selected' : '';
+                                echo "<option value='{$row['id']}' $sel>{$row['nombre']}</option>";
+                            }
+                        }
+                        ?>
                     </select>
                 </div>
-            </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">DNI <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="dni" value="<?php echo htmlspecialchars($empleado['dni']); ?>" required>
+                </div>
 
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label for="dni" class="form-label">DNI *</label>
-                    <input type="text" class="form-control" id="dni" name="dni" maxlength="8" required pattern="[0-9]{8}" value="<?php echo htmlspecialchars($empleado['dni']); ?>">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Nombres <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="nombres" value="<?php echo htmlspecialchars($empleado['nombres']); ?>" required>
                 </div>
-                <div class="col-md-4 mb-3">
-                    <label for="nombres" class="form-label">Nombres *</label>
-                    <input type="text" class="form-control" id="nombres" name="nombres" required value="<?php echo htmlspecialchars($empleado['nombres']); ?>">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Apellidos <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="apellidos" value="<?php echo htmlspecialchars($empleado['apellidos']); ?>" required>
                 </div>
-                 <div class="col-md-4 mb-3">
-                    <label for="apellidos" class="form-label">Apellidos *</label>
-                    <input type="text" class="form-control" id="apellidos" name="apellidos" required value="<?php echo htmlspecialchars($empleado['apellidos']); ?>">
-                </div>
-            </div>
 
-            <div class="row">
-                 <div class="col-md-6 mb-3">
-                    <label for="id_area" class="form-label">Área *</label>
-                    <select class="form-select" id="id_area" name="id_area" required>
-                        <option value="">Seleccione área...</option>
-                         <?php if ($areas): while ($a = $areas->fetch_assoc()): ?>
-                            <option value="<?php echo $a['id']; ?>" <?php if ($a['id'] == $empleado['id_area']) echo 'selected'; ?>>
-                                <?php echo htmlspecialchars($a['nombre']); ?>
-                            </option>
-                        <?php endwhile; endif; ?>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Área</label>
+                    <select class="form-select" name="id_area" id="id_area" required>
+                        <option value="">Seleccione...</option>
+                        <?php 
+                        if ($areas) {
+                            mysqli_data_seek($areas, 0);
+                            while ($row = $areas->fetch_assoc()) {
+                                $sel = ($empleado['id_area'] == $row['id']) ? 'selected' : '';
+                                echo "<option value='{$row['id']}' $sel>{$row['nombre']}</option>";
+                            }
+                        }
+                        ?>
                     </select>
                 </div>
-                <div class="col-md-6 mb-3">
-                    <label for="id_cargo" class="form-label">Cargo *</label>
-                    <select class="form-select" id="id_cargo" name="id_cargo" required>
-                        <option value="">Seleccione un área...</option>
-                        <?php if ($cargos_actuales): while ($c = $cargos_actuales->fetch_assoc()): ?>
-                            <option value="<?php echo $c['id']; ?>" <?php if ($c['id'] == $empleado['id_cargo']) echo 'selected'; ?>>
-                                <?php echo htmlspecialchars($c['nombre']); ?>
-                            </option>
-                        <?php endwhile; endif; ?>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Cargo</label>
+                    <select class="form-select" name="id_cargo" id="id_cargo" required>
+                        <option value="">Seleccione...</option>
+                        <?php 
+                        // Cargamos los cargos que coinciden con el área actual (Precarga PHP)
+                        if ($cargos && $cargos->num_rows > 0) {
+                            while ($row = $cargos->fetch_assoc()) {
+                                $sel = ($empleado['id_cargo'] == $row['id']) ? 'selected' : '';
+                                echo "<option value='{$row['id']}' $sel>{$row['nombre']}</option>";
+                            }
+                        } else {
+                            echo "<option value=''>Sin cargos asignados</option>";
+                        }
+                        ?>
                     </select>
                 </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Estado</label>
+                    <select class="form-select" name="estado">
+                        <option value="Activo" <?php echo ($empleado['estado'] == 'Activo') ? 'selected' : ''; ?>>Activo</option>
+                        <option value="Inactivo" <?php echo ($empleado['estado'] == 'Inactivo') ? 'selected' : ''; ?>>Inactivo</option>
+                    </select>
+                </div>
+
             </div>
 
-             <div class="mb-3">
-                <label for="estado" class="form-label">Estado *</label>
-                <select class="form-select" id="estado" name="estado" required>
-                    <option value="Activo" <?php if ($empleado['estado'] == 'Activo') echo 'selected'; ?>>Activo</option>
-                    <option value="Inactivo" <?php if ($empleado['estado'] == 'Inactivo') echo 'selected'; ?>>Inactivo</option>
-                </select>
-            </div>
-
-            <hr>
+            <hr class="my-4">
 
             <div class="d-flex justify-content-end gap-2">
                 <a href="empleados.php" class="btn btn-secondary">Cancelar</a>
-                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                <button type="submit" class="btn btn-primary px-4">Guardar Cambios</button>
             </div>
         </form>
     </div>
 </div>
 
+<?php require_once '../templates/footer.php'; ?>
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const areaSelect = document.getElementById('id_area');
-    const cargoSelect = document.getElementById('id_cargo');
+$(document).ready(function() {
+    
+    // Detectar cambio en el select de ÁREA
+    $('#id_area').on('change', function() {
+        var idArea = $(this).val();
+        
+        // Mensaje de carga visual
+        $('#id_cargo').html('<option value="">Cargando cargos...</option>');
 
-    areaSelect.addEventListener('change', function() {
-        const areaId = this.value; 
-        cargoSelect.disabled = true; 
-        cargoSelect.innerHTML = '<option value="">Cargando...</option>'; 
-
-        if (areaId) {
-            fetch('obtener_cargos.php?id_area=' + areaId)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json(); 
-                })
-                .then(cargos => {
-                    cargoSelect.innerHTML = '<option value="">Seleccione cargo...</option>'; 
-                    if (cargos && !cargos.error && cargos.length > 0) {
-                        cargos.forEach(cargo => {
-                            const option = document.createElement('option');
-                            option.value = cargo.id;
-                            option.textContent = cargo.nombre;
-                            cargoSelect.appendChild(option);
-                        });
-                        cargoSelect.disabled = false; 
-                    } else if (cargos && cargos.length === 0) {
-                        cargoSelect.innerHTML = '<option value="">No hay cargos para esta área</option>';
-                    } else {
-                        throw new Error(cargos.error || 'Respuesta inválida');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching cargos:', error);
-                    cargoSelect.innerHTML = '<option value="">Error al cargar cargos</option>';
-                });
+        if (idArea) {
+            console.log("Enviando petición para área ID: " + idArea); // Debug
+            
+            $.ajax({
+                url: 'obtener_cargos.php',
+                type: 'POST',
+                data: { id_area: idArea },
+                success: function(response) {
+                    console.log("Respuesta recibida"); // Debug
+                    $('#id_cargo').html(response);
+                },
+                error: function() {
+                    console.error("Error en AJAX"); // Debug
+                    $('#id_cargo').html('<option value="">Error al cargar datos</option>');
+                }
+            });
         } else {
-            cargoSelect.innerHTML = '<option value="">Seleccione un área primero...</option>';
-            cargoSelect.disabled = true;
+            $('#id_cargo').html('<option value="">Seleccione un área primero</option>');
         }
     });
 });
 </script>
-
-<?php require_once '../templates/footer.php'; ?>
