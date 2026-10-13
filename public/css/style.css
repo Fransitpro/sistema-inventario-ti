@@ -56,6 +56,25 @@ body {
     font-size: 0.8rem;
 }
 /* =========================================
+   1.f CAMPOS DE TEXTO CON size
+   ========================================= */
+/* El atributo size="50" no se ve si la caja tiene width:100% (que es lo que
+   hace .form-control de Bootstrap). Esta clase da el ancho real de 50
+   caracteres y evita que se desborde en pantallas pequeñas. */
+.input-size-50 {
+    width: 50ch;
+    max-width: 100%;
+}
+
+/* Campos de fecha (selector desplegable) con ancho de 30 caracteres.
+   Al ser type="date", el navegador ignora el atributo size, así que el ancho
+   real se da por CSS. */
+.input-size-30 {
+    width: 30ch;
+    max-width: 100%;
+}
+
+/* =========================================
    1.e BARRA VERTICAL PERSONALIZADA
    ========================================= */
 /* Chrome y Edge en Windows ignoran el estilo de la barra del sistema

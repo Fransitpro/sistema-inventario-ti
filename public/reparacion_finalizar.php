@@ -99,7 +99,7 @@ if (!$reparacion || $reparacion['estado_reparacion'] !== 'En Proceso') {
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="fecha_salida" class="form-label">Fecha de Salida / Retorno *</label>
-                    <input type="date" class="form-control" id="fecha_salida" name="fecha_salida" value="<?php echo date('Y-m-d'); ?>" required>
+                    <input type="date" class="form-control input-size-30" size="30" id="fecha_salida" name="fecha_salida" value="<?php echo date('Y-m-d'); ?>" required>
                 </div>
                 
                 <div class="col-md-6 mb-3">

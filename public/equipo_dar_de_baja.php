@@ -80,7 +80,7 @@ if (!$equipo) {
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="fecha_baja" class="form-label">Fecha de Baja *</label>
-                    <input type="date" class="form-control" id="fecha_baja" name="fecha_baja" value="<?php echo date('Y-m-d'); ?>" required>
+                    <input type="date" class="form-control input-size-30" size="30" id="fecha_baja" name="fecha_baja" value="<?php echo date('Y-m-d'); ?>" required>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="motivo" class="form-label">Motivo de la Baja *</label>

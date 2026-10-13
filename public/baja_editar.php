@@ -199,7 +199,7 @@ require_once '../templates/header.php';
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label fw-bold" for="fecha_baja">Fecha de Baja <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control" id="fecha_baja" name="fecha_baja" required
+                    <input type="date" class="form-control input-size-30" size="30" id="fecha_baja" name="fecha_baja" required
                            value="<?php echo htmlspecialchars($baja['fecha_baja'] ?? date('Y-m-d')); ?>">
                 </div>
                 <div class="col-md-6">

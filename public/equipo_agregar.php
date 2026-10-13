@@ -61,7 +61,7 @@ function registrar_equipo($conexion, $datos) {
     $sql = "INSERT INTO equipos (
                 codigo_inventario, numero_serie, ip, id_sucursal, id_tipo_equipo, id_marca, id_modelo,
                 fecha_adquisicion, tipo_adquisicion, caracteristicas, proveedor, observaciones, estado,
-                cod_pat, dimension, color, anio_inventario
+                cod_pat, dimension, color, estado_bien
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     try {
@@ -91,21 +91,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fecha = $_POST['fecha_adquisicion'];
     $proveedor = trim($_POST['proveedor']);
     $observaciones = trim($_POST['observaciones']);
-    $estado = 'Disponible'; // Estado inicial por defecto
+    $estado = 'Disponible'; // Valor inicial por defecto
+    // El estado solo admite los valores del enum de la columna equipos.estado.
+    // No se guarda tal cual lo venga del formulario.
+    $estados_validos = ['Disponible', 'Asignado', 'En Reparacion', 'De Baja'];
+    $estado_enviado = $_POST['estado'] ?? 'Disponible';
+    $estado = in_array($estado_enviado, $estados_validos, true) ? $estado_enviado : 'Disponible';
+
+    // Estado del bien (condición física). Campo aparte: no interviene en la
+    // lógica de asignaciones, reparaciones ni bajas. Vacío = sin evaluar.
+    $estados_bien_validos = ['', 'Bueno', 'Regular', 'Malo'];
+    $estado_bien = $_POST['estado_bien'] ?? '';
+    if (!in_array($estado_bien, $estados_bien_validos, true)) {
+        $estado_bien = '';
+    }
     $cod_pat = mb_strtoupper(trim($_POST['cod_pat']), 'UTF-8');
     $dimension = trim($_POST['dimension']);
     $color = trim($_POST['color']);
     $ip = trim($_POST['ip']);
-    $anio_inventario = trim($_POST['anio_inventario'] ?? '');
 
     // Validación básica (sin control de duplicados: el código de inventario puede repetirse, ej. S/S)
     if (empty($codigo) || empty($id_sucursal) || empty($id_tipo) || empty($id_marca)) {
         $mensaje = "Por favor complete los campos obligatorios marcados con (*).";
         $tipo_mensaje = "danger";
+    } elseif (mb_strlen($serie, 'UTF-8') > 50) {
+        // Límite de 50 caracteres: la columna admite 100, pero se recorta a 50
+        // porque es el máximo que acepta el formulario.
+        $mensaje = "El número de serie no puede superar los 50 caracteres "
+            . "(escribió " . mb_strlen($serie, 'UTF-8') . ").";
+        $tipo_mensaje = "danger";
     } else {
         $datos = [$codigo, $serie, $ip, $id_sucursal, $id_tipo, $id_marca, $id_modelo,
                   $fecha, $tipo_adq, $caracteristicas, $proveedor, $observaciones, $estado,
-                  $cod_pat, $dimension, $color, $anio_inventario];
+                  $cod_pat, $dimension, $color, $estado_bien];
 
         list($guardado, $errno) = registrar_equipo($conexion, $datos);
 
@@ -129,6 +147,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once '../templates/header.php';
 
 // Consultas para llenar los selectores (Modelos se carga vía AJAX ahora)
+require_once __DIR__ . '/../includes/colores.php';
+
 $sucursales = $conexion->query("SELECT id, nombre FROM sucursales WHERE estado = 'Activo' ORDER BY nombre");
 $tipos = $conexion->query("SELECT id, nombre FROM tipos_equipo WHERE estado = 'Activo' ORDER BY nombre");
 $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo' ORDER BY nombre");
@@ -175,11 +195,7 @@ $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Código Inventario <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" name="codigo_inventario" required placeholder="Ej: INV-001 o S/S">
-                    <div class="form-text">Use <strong>S/S</strong> si el equipo no tiene código.</div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Año de Inventario</label>
-                    <input type="text" class="form-control" name="anio_inventario" maxlength="4" placeholder="Ej: 2026">
+                    <div class="form-text">Use <strong>S/S</strong> si el equipo no tiene código (se puede repetir).</div>
                 </div>
                 <div class="col-md-4">
                 <label class="form-label fw-bold">Código Patrimonial</label>
@@ -189,8 +205,13 @@ $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo
 
                 <div class="col-12">
                     <label class="form-label fw-bold">Número de Serie</label>
-                    <input type="text" class="form-control" name="numero_serie" placeholder="Ingrese el número de serie o S/S">
-                    <div class="form-text">Admite <strong>S/S</strong> si el equipo no tiene número de serie.</div>
+                    <input type="text" class="form-control input-size-50" name="numero_serie" id="numero_serie"
+                           size="50" maxlength="50" placeholder="Ingrese el número de serie o S/S"
+                           value="<?php echo htmlspecialchars($_POST['numero_serie'] ?? ''); ?>">
+                    <div class="form-text">
+                        Admite <strong>S/S</strong> si el equipo no tiene número de serie.
+                        Máximo <strong>50 caracteres</strong> — <span id="serie_contador">0/50</span>.
+                    </div>
                 </div>
 
                 <div class="col-md-4">
@@ -242,16 +263,40 @@ $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo
                 
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Color</label>
-                    <input type="text" class="form-control" name="color" maxlength="50" placeholder="Ej: Negro">
+                    <select class="form-select" name="color" id="color">
+                        <?php echo opciones_color($conexion, $_POST['color'] ?? ''); ?>
+                    </select>
+                    <div class="form-text">Negro, Marrón, Plateado o Verde.</div>
                 </div>
-                
-                <div class="col-md-6">
+
+                <!-- Los tres campos siguientes ocupan una fila completa: 4+4+4 -->
+                <div class="w-100 d-none d-md-block"></div>
+
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Fecha de Adquisición</label>
-                    <input type="date" class="form-control" name="fecha_adquisicion" value="<?php echo date('Y-m-d'); ?>">
+                    <input type="date" class="form-control input-size-30" size="30" name="fecha_adquisicion" value="<?php echo date('Y-m-d'); ?>">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Estado del Bien</label>
+                    <select class="form-select input-size-30" name="estado_bien" id="estado_bien">
+                        <?php
+                        $estados_bien = ['' => 'Sin evaluar', 'Bueno' => 'Bueno', 'Regular' => 'Regular', 'Malo' => 'Malo'];
+                        $bien_actual = $_POST['estado_bien'] ?? '';
+                        foreach ($estados_bien as $valor => $texto) {
+                            $sel = ((string)$bien_actual === (string)$valor) ? 'selected' : '';
+                            echo "<option value='" . htmlspecialchars($valor) . "' $sel>" . htmlspecialchars($texto) . "</option>";
+                        }
+                        ?>
+                    </select>
+                    <div class="form-text">Condición física del equipo. No afecta a las asignaciones.</div>
+                </div>
+                <!-- El estado operativo no se muestra: el sistema lo manages solo
+     (Disponible al alta, luego Asignado / En reparación / De baja según el
+     flujo de asignaciones, reparaciones y bajas). -->
+                <input type="hidden" name="estado" id="estado" value="<?php echo htmlspecialchars($estado_actual ?? 'Disponible'); ?>">
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Proveedor</label>
-                    <input type="text" class="form-control" name="proveedor" placeholder="Nombre del proveedor">
+                    <input type="text" class="form-control input-size-30" size="30" name="proveedor" placeholder="Nombre del proveedor">
                 </div>
 
                 <div class="col-12">
@@ -275,6 +320,20 @@ $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo
 
 <script>
 $(document).ready(function() {
+    // Contador de caracteres del número de serie (máximo 50)
+    var campoSerie = document.getElementById('numero_serie');
+    var contador = document.getElementById('serie_contador');
+
+    if (campoSerie && contador) {
+        var actualizarContador = function () {
+            var largo = campoSerie.value.length;
+            contador.textContent = largo + '/50';
+            contador.className = (largo >= 50) ? 'text-danger fw-bold' : '';
+        };
+        campoSerie.addEventListener('input', actualizarContador);
+        actualizarContador();
+    }
+
     $('#id_marca').on('change', function() {
         var idMarca = $(this).val();
         

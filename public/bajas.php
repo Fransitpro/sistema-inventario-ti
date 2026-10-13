@@ -217,11 +217,11 @@ arsort($por_motivo);
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Desde</label>
-                    <input type="date" class="form-control form-control-sm" name="fecha_desde" value="<?php echo htmlspecialchars($filtro_desde); ?>">
+                    <input type="date" class="form-control input-size-30 form-control-sm" size="30" name="fecha_desde" value="<?php echo htmlspecialchars($filtro_desde); ?>">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Hasta</label>
-                    <input type="date" class="form-control form-control-sm" name="fecha_hasta" value="<?php echo htmlspecialchars($filtro_hasta); ?>">
+                    <input type="date" class="form-control input-size-30 form-control-sm" size="30" name="fecha_hasta" value="<?php echo htmlspecialchars($filtro_hasta); ?>">
                 </div>
                 <div class="col-md-6 d-flex align-items-end gap-2">
                     <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i> Filtrar</button>

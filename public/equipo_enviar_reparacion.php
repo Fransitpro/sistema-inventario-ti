@@ -98,11 +98,11 @@ if (!$equipo) {
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="fecha_ingreso" class="form-label">Fecha de Envío *</label>
-                    <input type="date" class="form-control" id="fecha_ingreso" name="fecha_ingreso" value="<?php echo date('Y-m-d'); ?>" required>
+                    <input type="date" class="form-control input-size-30" size="30" id="fecha_ingreso" name="fecha_ingreso" value="<?php echo date('Y-m-d'); ?>" required>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="proveedor" class="form-label">Proveedor de Servicio / Técnico</label>
-                    <input type="text" class="form-control" id="proveedor" name="proveedor">
+                    <input type="text" class="form-control input-size-30" size="30" id="proveedor" name="proveedor">
                 </div>
             </div>
             

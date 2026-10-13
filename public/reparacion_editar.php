@@ -167,12 +167,12 @@ require_once '../templates/header.php';
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label fw-bold" for="fecha_ingreso">Fecha de Ingreso <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control" id="fecha_ingreso" name="fecha_ingreso" required
+                    <input type="date" class="form-control input-size-30" size="30" id="fecha_ingreso" name="fecha_ingreso" required
                            value="<?php echo htmlspecialchars($_POST['fecha_ingreso'] ?? $reparacion['fecha_ingreso']); ?>">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-bold" for="fecha_salida">Fecha de Salida</label>
-                    <input type="date" class="form-control" id="fecha_salida" name="fecha_salida"
+                    <input type="date" class="form-control input-size-30" size="30" id="fecha_salida" name="fecha_salida"
                            value="<?php echo htmlspecialchars($_POST['fecha_salida'] ?? ($reparacion['fecha_salida'] ?? '')); ?>">
                     <div class="form-text">Si marca el estado como <strong>Finalizada</strong> y la deja vacía, se usa la fecha de hoy.</div>
                 </div>

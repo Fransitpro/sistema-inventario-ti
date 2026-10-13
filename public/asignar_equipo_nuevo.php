@@ -62,6 +62,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if ($form['id_empleado'] === '' || !is_numeric($form['id_empleado'])) {
         $errores[] = 'Debe seleccionar el empleado que recibirá el equipo.';
     }
+    // El límite de 50 caracteres también se valida aquí: la columna de la base
+    // es varchar(50) y sin esta comprobación el INSERT fallaría.
+    if (mb_strlen($form['numero_serie'], 'UTF-8') > 50) {
+        $errores[] = 'El número de serie no puede superar los 50 caracteres '
+            . '(escribió ' . mb_strlen($form['numero_serie'], 'UTF-8') . ').';
+    }
 
     // El empleado debe existir y estar activo
     if (empty($errores)) {
@@ -122,20 +128,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $v_obs     = $form['observaciones'];
             $v_codpat  = $form['cod_pat'];
             $v_dim     = $form['dimension'];
-            $v_color   = $form['color'];
+$v_color = $form['color'];
+            // Estado del bien (condición física). Vacío = sin evaluar.
+            $estados_bien_ok = ['', 'Bueno', 'Regular', 'Malo'];
+            $bien_enviado = $_POST['estado_bien'] ?? '';
+            $v_estadobien = in_array($bien_enviado, $estados_bien_ok, true) ? $bien_enviado : '';
 
             $sql_eq = "INSERT INTO equipos (
                         codigo_inventario, numero_serie, ip, id_sucursal, id_tipo_equipo,
                         id_marca, id_modelo, fecha_adquisicion, tipo_adquisicion,
                         caracteristicas, proveedor, observaciones, estado,
-                        cod_pat, dimension, color, anio
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Disponible', ?, ?, ?, ?)";
+                        cod_pat, dimension, color, anio, estado_bien
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Disponible', ?, ?, ?, ?, ?)";
             $stmt_eq = $conexion->prepare($sql_eq);
             // 3 textos (codigo, serie, ip) + 4 enteros (sucursal, tipo, marca, modelo)
-// + 8 textos (fecha, tipo_adquisicion, caracteristicas, proveedor,
-//   observaciones, cod_pat, dimension, color) + 1 entero (anio) = 16
-$stmt_eq->bind_param(
-                "sssiiiissssssssi",
+                // + 8 textos (fecha, tipo_adquisicion, caracteristicas, proveedor,
+                // observaciones, cod_pat, dimension, color)
+                // + 1 entero (anio) + 1 texto (estado_bien) = 17
+                $stmt_eq->bind_param(
+                'sssiiii' . str_repeat('s', 8) . 'is',
                 $v_codigo,
                 $v_serie,
                 $v_ip,
@@ -151,7 +162,8 @@ $stmt_eq->bind_param(
                 $v_codpat,
                 $v_dim,
                 $v_color,
-                $anio
+                $anio,
+                $v_estadobien
             );
             $stmt_eq->execute();
             $id_equipo_nuevo = $stmt_eq->insert_id;
@@ -195,6 +207,8 @@ $stmt_eq->bind_param(
 }
 
 // 5. DATOS PARA LOS SELECTORES
+require_once __DIR__ . '/../includes/colores.php';
+
 $sucursales = $conexion->query("SELECT id, nombre FROM sucursales WHERE estado = 'Activo' ORDER BY nombre");
 $tipos = $conexion->query("SELECT id, nombre FROM tipos_equipo WHERE estado = 'Activo' ORDER BY nombre");
 $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo' ORDER BY nombre");
@@ -314,8 +328,12 @@ require_once '../templates/header.php';
 
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Número de Serie</label>
-                    <input type="text" class="form-control" name="numero_serie" placeholder="O S/S"
+                    <input type="text" class="form-control input-size-50" name="numero_serie" id="numero_serie"
+                           size="50" maxlength="50" placeholder="O S/S"
                            value="<?php echo htmlspecialchars($form['numero_serie']); ?>">
+                    <div class="form-text">
+                        Máximo <strong>50 caracteres</strong> — <span id="serie_contador">0/50</span>.
+                    </div>
                 </div>
 
                 <div class="col-md-4">
@@ -386,8 +404,9 @@ require_once '../templates/header.php';
 
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Color</label>
-                    <input type="text" class="form-control" name="color" maxlength="50" placeholder="Ej: Negro"
-                           value="<?php echo htmlspecialchars($form['color']); ?>">
+                    <select class="form-select" name="color" id="color">
+                        <?php echo opciones_color($conexion, $form['color']); ?>
+                    </select>
                 </div>
 
                 <div class="col-md-4">
@@ -398,13 +417,26 @@ require_once '../templates/header.php';
 
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Fecha de Adquisición</label>
-                    <input type="date" class="form-control" name="fecha_adquisicion"
+                    <input type="date" class="form-control input-size-30" size="30" name="fecha_adquisicion"
                            value="<?php echo htmlspecialchars($form['fecha_adquisicion']); ?>">
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Estado del Bien</label>
+                    <select class="form-select input-size-30" name="estado_bien" id="estado_bien">
+                        <?php
+                        $estados_bien = ['' => 'Sin evaluar', 'Bueno' => 'Bueno', 'Regular' => 'Regular', 'Malo' => 'Malo'];
+                        foreach ($estados_bien as $valor => $texto) {
+                            $sel = ((string)$form['estado_bien'] === (string)$valor) ? 'selected' : '';
+                            echo "<option value='" . htmlspecialchars($valor) . "' $sel>" . htmlspecialchars($texto) . "</option>";
+                        }
+                        ?>
+                    </select>
+                    <div class="form-text">Condición física. No afecta a la asignación.</div>
+                </div>
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Proveedor</label>
-                    <input type="text" class="form-control" name="proveedor" placeholder="Nombre del proveedor"
+                    <input type="text" class="form-control input-size-30" size="30" name="proveedor" placeholder="Nombre del proveedor"
                            value="<?php echo htmlspecialchars($form['proveedor']); ?>">
                 </div>
 
@@ -436,6 +468,20 @@ require_once '../templates/header.php';
 
 <script>
 $(document).ready(function() {
+    // Contador de caracteres del número de serie (máximo 50)
+    var campoSerie = document.getElementById('numero_serie');
+    var contador = document.getElementById('serie_contador');
+
+    if (campoSerie && contador) {
+        var actualizarContador = function () {
+            var largo = campoSerie.value.length;
+            contador.textContent = largo + '/50';
+            contador.className = (largo >= 50) ? 'text-danger fw-bold' : '';
+        };
+        campoSerie.addEventListener('input', actualizarContador);
+        actualizarContador();
+    }
+
     $('#id_marca').on('change', function() {
         var idMarca = $(this).val();
         $('#id_modelo').html('<option value="">Cargando modelos...</option>');

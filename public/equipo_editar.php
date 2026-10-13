@@ -36,7 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dimension = trim($_POST['dimension']);
     $color = trim($_POST['color']);
     $ip = trim($_POST['ip']);
-    $anio_inventario = trim($_POST['anio_inventario'] ?? '');
 
     // Estado del equipo: solo se aceptan los valores del enum de la base de datos
     $estados_permitidos = ['Disponible', 'Asignado', 'En Reparacion', 'De Baja'];
@@ -45,8 +44,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $estado = null; // si no es válido, se conserva el estado actual
     }
 
+    // Estado del bien (condición física). Campo independiente del operativo.
+    // Vacío significa "sin evaluar", por eso se permite como valor.
+    $estados_bien_permitidos = ['', 'Bueno', 'Regular', 'Malo'];
+    $estado_bien = $_POST['estado_bien'] ?? '';
+    if (!in_array($estado_bien, $estados_bien_permitidos, true)) {
+        $estado_bien = null; // si no es válido, no se modifica
+    }
+
     if (empty($codigo) || empty($id_sucursal) || empty($id_tipo) || empty($id_marca)) {
         $mensaje = "Por favor complete los campos obligatorios.";
+        $tipo_mensaje = "danger";
+    } elseif (mb_strlen($serie, 'UTF-8') > 50) {
+        $mensaje = "El número de serie no puede superar los 50 caracteres "
+            . "(escribió " . mb_strlen($serie, 'UTF-8') . ").";
         $tipo_mensaje = "danger";
     } else {
         // Los codigos pueden repetirse (ej. S/S), por lo que no se validan duplicados
@@ -66,15 +77,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 cod_pat = ?,
                 dimension = ?,
                 color = ?,
-                anio_inventario = ?,
-                estado = COALESCE(?, estado)
+                estado = COALESCE(?, estado),
+                estado_bien = COALESCE(?, estado_bien)
                 WHERE id = ?";
-        
+
         $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("sssiiiissssssssssi", 
-            $codigo, $serie,$ip , $id_sucursal, $id_tipo, $id_marca, $id_modelo, 
+        $stmt->bind_param("sssiiiissssssssssi",
+            $codigo, $serie,$ip , $id_sucursal, $id_tipo, $id_marca, $id_modelo,
             $fecha, $tipo_adq, $caracteristicas, $proveedor, $observaciones,
-            $cod_pat, $dimension, $color, $anio_inventario, $estado, $id_equipo
+            $cod_pat, $dimension, $color, $estado, $estado_bien, $id_equipo
         );
 
         try {
@@ -109,6 +120,8 @@ if (!$equipo) {
 require_once '../templates/header.php';
 
 // CARGAR CATÁLOGOS
+require_once __DIR__ . '/../includes/colores.php';
+
 $sucursales = $conexion->query("SELECT id, nombre FROM sucursales WHERE estado = 'Activo' ORDER BY nombre");
 $tipos = $conexion->query("SELECT id, nombre FROM tipos_equipo WHERE estado = 'Activo' ORDER BY nombre");
 $marcas = $conexion->query("SELECT id, nombre FROM marcas WHERE estado = 'Activo' ORDER BY nombre");
@@ -170,25 +183,10 @@ $modelos = $stmt_modelos->get_result();
 
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Número de Serie</label>
-                    <input type="text" class="form-control" name="numero_serie" value="<?php echo htmlspecialchars($equipo['numero_serie']); ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold" for="estado">Estado del Equipo <span class="text-danger">*</span></label>
-                    <select class="form-select" name="estado" id="estado" required>
-                        <?php
-                        $estados = [
-                            'Disponible'   => 'Disponible',
-                            'Asignado'     => 'Asignado',
-                            'En Reparacion' => 'En Reparación',
-                            'De Baja'      => 'De Baja'
-                        ];
-                        foreach ($estados as $valor => $texto) {
-                            $sel = ($equipo['estado'] === $valor) ? 'selected' : '';
-                            echo "<option value='" . htmlspecialchars($valor) . "' $sel>" . htmlspecialchars($texto) . "</option>";
-                        }
-                        ?>
-                    </select>
-                    <div class="form-text" id="aviso-estado"></div>
+                    <input type="text" class="form-control input-size-50" name="numero_serie" id="numero_serie"
+                           size="50" maxlength="50"
+                           value="<?php echo htmlspecialchars($equipo['numero_serie']); ?>">
+<div class="form-text">Máximo <strong>50 caracteres</strong> — <span id="serie_contador">0/50</span>.</div>
                 </div>
 
                 <div class="col-md-4">
@@ -266,21 +264,39 @@ $modelos = $stmt_modelos->get_result();
                 
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Color</label>
-                    <input type="text" class="form-control" name="color" maxlength="50" placeholder="Ej: Negro" value="<?php echo htmlspecialchars($equipo['color'] ?? ''); ?>">
-                </div>
-                
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Año de Inventario</label>
-                    <input type="text" class="form-control" name="anio_inventario" maxlength="4" value="<?php echo htmlspecialchars($equipo['anio_inventario'] ?? ''); ?>" placeholder="Ej: 2026">
+                    <select class="form-select" name="color" id="color">
+                        <?php echo opciones_color($conexion, $equipo['color'] ?? ''); ?>
+                    </select>
                 </div>
 
-                <div class="col-md-6">
+                <!-- Los tres campos siguientes ocupan una fila completa: 4+4+4 -->
+                <div class="w-100 d-none d-md-block"></div>
+
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Fecha de Adquisición</label>
-                    <input type="date" class="form-control" name="fecha_adquisicion" value="<?php echo $equipo['fecha_adquisicion']; ?>">
+                    <input type="date" class="form-control input-size-30" size="30" name="fecha_adquisicion" value="<?php echo $equipo['fecha_adquisicion']; ?>">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Estado del Bien</label>
+                    <select class="form-select input-size-30" name="estado_bien" id="estado_bien">
+                        <?php
+                        $estados_bien = ['' => 'Sin evaluar', 'Bueno' => 'Bueno', 'Regular' => 'Regular', 'Malo' => 'Malo'];
+                        $bien_actual = $equipo['estado_bien'] ?? '';
+                        foreach ($estados_bien as $valor => $texto) {
+                            $sel = ((string)$bien_actual === (string)$valor) ? 'selected' : '';
+                            echo "<option value='" . htmlspecialchars($valor) . "' $sel>" . htmlspecialchars($texto) . "</option>";
+                        }
+                        ?>
+                    </select>
+                    <div class="form-text">Condición física del equipo. No afecta a las asignaciones.</div>
+                </div>
+                <!-- El estado operativo no se muestra: se conserva el que ya tiene.
+     El sistema lo cambia solo según asignaciones, reparaciones y bajas. -->
+                <input type="hidden" name="estado" id="estado"
+                       value="<?php echo htmlspecialchars($equipo['estado']); ?>">
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Proveedor</label>
-                    <input type="text" class="form-control" name="proveedor" value="<?php echo htmlspecialchars($equipo['proveedor'] ?? ''); ?>">
+                    <input type="text" class="form-control input-size-30" size="30" name="proveedor" value="<?php echo htmlspecialchars($equipo['proveedor'] ?? ''); ?>">
                 </div>
 
                 <div class="col-12">
@@ -304,21 +320,21 @@ $modelos = $stmt_modelos->get_result();
 
 <script>
 $(document).ready(function() {
-    var estadoOriginal = $('#estado').val();
-    var avisos = {
-        'Asignado': 'El equipo quedará como Asignado. Si no tiene una asignación vigente, asígnalo desde Asignaciones.',
-        'En Reparacion': 'El equipo pasará a estado En Reparación sin generar un ingreso en Reparaciones.',
-        'De Baja': 'El equipo pasará a De Baja. Esto no genera el acta ni el registro de baja; usa "Dar de baja" si necesitas el documento.'
-    };
+    // Contador de caracteres del número de serie (máximo 50)
+    var campoSerie = document.getElementById('numero_serie');
+    var contador = document.getElementById('serie_contador');
 
-    $('#estado').on('change', function() {
-        var aviso = avisos[this.value];
-        if (aviso && !confirm(aviso + '\n\n¿Desea continuar?')) {
-            $(this).val(estadoOriginal);
-            return;
-        }
-        $('#aviso-estado').text(this.value === estadoOriginal ? '' : (aviso || ''));
-    });
+    if (campoSerie && contador) {
+        var actualizarContador = function () {
+            var largo = campoSerie.value.length;
+            contador.textContent = largo + '/50';
+            contador.className = (largo >= 50) ? 'text-danger fw-bold' : '';
+        };
+        campoSerie.addEventListener('input', actualizarContador);
+        actualizarContador();
+    }
+// El estado operativo ya no se edita desde aquí (viaja en un input oculto),
+    // por lo que se retiraron sus avisos de confirmación.
 
     $('#id_marca').on('change', function() {
         var idMarca = $(this).val();

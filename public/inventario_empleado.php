@@ -23,7 +23,7 @@ $sql = "SELECT
             emp.dni, emp.nombres, emp.apellidos, emp.estado AS estado_empleado,
             cg.nombre AS cargo_nombre,
             ar.nombre AS area_nombre,
-            e.codigo_inventario, e.cod_pat, e.anio_inventario, e.numero_serie, e.estado AS estado_equipo,
+            e.codigo_inventario, e.cod_pat, e.numero_serie, e.estado AS estado_equipo,
             te.nombre AS tipo_nombre,
             ma.nombre AS marca_nombre,
             mo.nombre AS modelo_nombre,
@@ -254,11 +254,11 @@ $hay_filas = $total_equipos > 0;
             </div>
             <div class="col-md-3">
                 <label class="form-label">Entregado desde</label>
-                <input type="date" class="form-control form-control-sm" name="fecha_desde" value="<?php echo htmlspecialchars($filtro_fecha_desde); ?>">
+                <input type="date" class="form-control input-size-30 form-control-sm" size="30" name="fecha_desde" value="<?php echo htmlspecialchars($filtro_fecha_desde); ?>">
             </div>
             <div class="col-md-3">
                 <label class="form-label">Entregado hasta</label>
-                <input type="date" class="form-control form-control-sm" name="fecha_hasta" value="<?php echo htmlspecialchars($filtro_fecha_hasta); ?>">
+                <input type="date" class="form-control input-size-30 form-control-sm" size="30" name="fecha_hasta" value="<?php echo htmlspecialchars($filtro_fecha_hasta); ?>">
             </div>
             <div class="col-md-3 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary btn-sm me-2">Filtrar</button>
@@ -293,7 +293,6 @@ $hay_filas = $total_equipos > 0;
                         <th>Marca</th>
                         <th>Modelo</th>
                         <th>N° Serie</th>
-                        <th>Año</th>
                         <th>Estado Equipo</th>
                         <th>Fecha Entrega</th>
                         <th>Estado Asignación</th>
@@ -316,7 +315,6 @@ $hay_filas = $total_equipos > 0;
                                 <td><?php echo htmlspecialchars($fila['marca_nombre'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($fila['modelo_nombre'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($fila['numero_serie']); ?></td>
-                                <td><?php echo htmlspecialchars($fila['anio_inventario'] ?? 'N/A'); ?></td>
                                 <td>
                                     <span class="badge <?php
                                         echo $fila['estado_equipo'] === 'Disponible' ? 'bg-secondary'
