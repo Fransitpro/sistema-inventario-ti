@@ -4,6 +4,11 @@
 .DS_Store
 Thumbs.db
 *.log
-# Si tienes carpetas de imágenes subidas por usuarios que no quieres en el repo:
+# Archivos subidos por usuarios (actas, devoluciones, respaldos)
+/uploads/*
+!/uploads/.gitkeep
+*.sql
+
+# Rutas heredadas que ya no usa el proyecto
 /public/uploads/*
 !/public/uploads/.gitkeep
