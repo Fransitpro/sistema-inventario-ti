@@ -38,13 +38,15 @@ if (isset($_GET['status'])) {
                 });
               </script>';
     } elseif ($_GET['status'] === 'error') {
-        $msg = htmlspecialchars($_GET['msg'] ?? 'Error desconocido');
+        // htmlspecialchars NO es seguro dentro de JavaScript: un " o un </script>
+        // en el mensaje rompería la página. Se codifica como literal JSON.
+        $msgJs = json_encode($_GET['msg'] ?? 'Error desconocido', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         echo '<script>
                 document.addEventListener("DOMContentLoaded", function() {
                     Swal.fire({
                         icon: "error",
                         title: "Error",
-                        text: "'.$msg.'",
+                        text: ' . $msgJs . ',
                         confirmButtonColor: "#d33"
                     });
                 });
@@ -146,16 +148,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                // Mostrar estado de carga
-                let timerInterval;
+                // Mostrar estado de carga mientras se sube el archivo
                 Swal.fire({
                     title: 'Restaurando...',
-                    html: 'Por favor espera, procesando la base de datos.',
-                    timerProgressBar: true,
+                    html: 'Por favor espera, procesando la base de datos. No cierres esta ventana.',
+                    allowOutsideClick: false,
                     didOpen: () => {
                         Swal.showLoading();
                         // Enviar el formulario
-                        formRestaurar.submit(); 
+                        formRestaurar.submit();
                     }
                 });
             }

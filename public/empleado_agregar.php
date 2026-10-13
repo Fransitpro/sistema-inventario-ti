@@ -22,6 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $apellidos = trim($_POST['apellidos']);
     $id_area = $_POST['id_area'];
     $id_cargo = $_POST['id_cargo'];
+    $correo = trim($_POST['correo']);
+    $telefono = trim($_POST['telefono']);
+    $celular = trim($_POST['celular']);
     $estado = 'Activo'; // Por defecto
 
     if (empty($dni) || empty($nombres) || empty($apellidos) || empty($id_sucursal) || empty($id_area) || empty($id_cargo)) {
@@ -39,9 +42,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tipo_mensaje = "warning";
         } else {
             // Insertar
-            $sql = "INSERT INTO empleados (id_sucursal, dni, nombres, apellidos, id_area, id_cargo, estado) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO empleados (
+                        id_sucursal, dni, nombres, apellidos, id_area, id_cargo, estado,
+                        correo, telefono, celular
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("isssiis", $id_sucursal, $dni, $nombres, $apellidos, $id_area, $id_cargo, $estado);
+            $stmt->bind_param(
+                    "isssiissss",
+                    $id_sucursal,
+                    $dni,
+                    $nombres,
+                    $apellidos,
+                    $id_area,
+                    $id_cargo,
+                    $estado,
+                    $correo,
+                    $telefono,
+                    $celular);
 
             if ($stmt->execute()) {
                 header("Location: empleados.php?msg=guardado");
@@ -82,7 +99,7 @@ $areas = $conexion->query("SELECT id, nombre FROM areas WHERE estado = 'Activo' 
         <h5 class="mb-0 text-primary fw-bold"><i class="bi bi-person-plus-fill me-2"></i> Datos del Empleado</h5>
     </div>
     <div class="card-body p-4">
-        <form action="empleado_agregar.php" method="POST">
+        <form action="empleado_agregar.php" method="POST" autocomplete="off">
             <div class="row g-3">
                 
                 <div class="col-md-12">
@@ -115,6 +132,18 @@ $areas = $conexion->query("SELECT id, nombre FROM areas WHERE estado = 'Activo' 
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Apellidos <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" name="apellidos" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Correo</label>
+                    <input type="email" class="form-control" name="correo" maxlength="50" autocomplete="off" placeholder="correo@empresa.com">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Teléfono</label>
+                    <input type="text" class="form-control" name="telefono" maxlength="50" autocomplete="off" placeholder="Ej: 01 555 5555">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Celular</label>
+                    <input type="text" class="form-control" name="celular" maxlength="50" autocomplete="off" placeholder="Ej: 999 999 999">
                 </div>
 
                 <div class="col-md-6">

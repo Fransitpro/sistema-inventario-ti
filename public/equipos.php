@@ -2,7 +2,7 @@
 require_once '../templates/header.php';
 
 // --- LÓGICA PARA FILTROS ---
-$filtro_codigo = $_GET['codigo_inventario'] ?? '';
+$filtro_codigo = trim($_GET['codigo_inventario'] ?? '');
 $filtro_serie = $_GET['numero_serie'] ?? '';
 $filtro_sucursal = $_GET['sucursal'] ?? '';
 $filtro_tipo = $_GET['tipo_equipo'] ?? '';
@@ -21,7 +21,13 @@ $sql = "SELECT e.*, s.nombre AS sucursal_nombre, t.nombre AS tipo_nombre, ma.nom
         LEFT JOIN modelos mo ON e.id_modelo = mo.id";
 
 $where_clauses = [];
-if (!empty($filtro_codigo)) $where_clauses[] = "e.codigo_inventario LIKE '%" . $conexion->real_escape_string($filtro_codigo) . "%'";
+// El código se compara ignorando espacios, guiones y guiones bajos porque en la BD
+// conviven formatos como "ANC - 000337" y "ANC-001178".
+$codigo_normalizado = str_replace([' ', '-', '_', '%'], '', $filtro_codigo);
+if (!empty($codigo_normalizado)) {
+    $where_clauses[] = "REPLACE(REPLACE(REPLACE(e.codigo_inventario, ' ', ''), '-', ''), '_', '') LIKE '%"
+        . $conexion->real_escape_string($codigo_normalizado) . "%'";
+}
 if (!empty($filtro_serie)) $where_clauses[] = "e.numero_serie LIKE '%" . $conexion->real_escape_string($filtro_serie) . "%'";
 if (!empty($filtro_sucursal)) $where_clauses[] = "e.id_sucursal = " . (int)$filtro_sucursal;
 if (!empty($filtro_tipo)) $where_clauses[] = "e.id_tipo_equipo = " . (int)$filtro_tipo;
@@ -54,7 +60,8 @@ $resultado = $conexion->query($sql);
                 <?php endif; ?>
                 <div class="col-md-3"><label class="form-label">Tipo de Equipo</label><select class="form-select form-select-sm" name="tipo_equipo"><option value="">Todos</option><?php if ($tipos_equipo) { mysqli_data_seek($tipos_equipo, 0); while($t = $tipos_equipo->fetch_assoc()) { echo "<option value='{$t['id']}' ".($filtro_tipo == $t['id'] ? 'selected' : '').">".htmlspecialchars($t['nombre'])."</option>"; }} ?></select></div>
                 <div class="col-md-3"><label class="form-label">Marca</label><select class="form-select form-select-sm" name="marca"><option value="">Todas</option><?php if ($marcas) { mysqli_data_seek($marcas, 0); while($m = $marcas->fetch_assoc()) { echo "<option value='{$m['id']}' ".($filtro_marca == $m['id'] ? 'selected' : '').">".htmlspecialchars($m['nombre'])."</option>"; }} ?></select></div>
-                <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select form-select-sm" name="estado"><option value="">Todos</option><option value="Disponible" <?php if($filtro_estado == 'Disponible') echo 'selected'; ?>>Disponible</option><option value="Asignado" <?php if($filtro_estado == 'Asignado') echo 'selected'; ?>>Asignado</option><option value="En Reparación" <?php if($filtro_estado == 'En Reparación') echo 'selected'; ?>>En Reparación</option><option value="De Baja" <?php if($filtro_estado == 'De Baja') echo 'selected'; ?>>De Baja</option></select></div>
+                <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select form-select-sm" name="estado"><option value="">Todos</option><option value="Disponible" <?php if($filtro_estado == 'Disponible') echo 'selected'; ?>>Disponible</option><option value="Asignado" <?php if($filtro_estado == 'Asignado') echo 'selected'; ?>>Asignado</option><option value="En Reparacion" <?php if($filtro_estado == 'En Reparacion') echo 'selected'; ?>>En Reparación</option>
+<option value="De Baja" <?php if($filtro_estado == 'De Baja') echo 'selected'; ?>>De Baja</option></select></div>
                 <div class="col-md-6 d-flex align-items-end"><button type="submit" class="btn btn-primary btn-sm me-2">Filtrar</button><a href="equipos.php" class="btn btn-secondary btn-sm">Limpiar</a></div>
             </div>
         </form>
@@ -74,9 +81,9 @@ $resultado = $conexion->query($sql);
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table id="tabla-equipos" class="table table-striped table-hover align-middle">
+            <table id="tabla-equipos" data-a4-titulo="Gestión de Equipos" class="table table-striped table-hover align-middle">
                 <thead class="table-dark">
-                    <tr><th>Sucursal</th><th>Código</th><th>Tipo</th><th>Marca / Modelo</th><th>N/S</th><th>Fecha Adquisición</th><th>Estado</th><th>Acciones</th></tr>
+                    <tr><th>Sucursal</th><th>Código</th><th>Tipo</th><th>Marca</th><th>Modelo</th><th>N/S</th><th>Año</th><th>Fecha Adquisición</th><th>Estado</th><th>Acciones</th></tr>
                 </thead>
                 <tbody>
                     <?php if ($resultado && $resultado->num_rows > 0): ?>
@@ -85,11 +92,13 @@ $resultado = $conexion->query($sql);
                                 <td><?php echo htmlspecialchars($equipo['sucursal_nombre'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($equipo['codigo_inventario'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($equipo['tipo_nombre'] ?? 'N/A'); ?></td>
-                                <td><?php echo htmlspecialchars(($equipo['marca_nombre'] ?? '') . ' / ' . ($equipo['modelo_nombre'] ?? '')); ?></td>
+                                <td><?php echo htmlspecialchars($equipo['marca_nombre'] ?: 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($equipo['modelo_nombre'] ?: 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($equipo['numero_serie'] ?? 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($equipo['anio_inventario'] ?? 'N/A'); ?></td>
                                 <td><?php echo isset($equipo['fecha_adquisicion']) ? date('d/m/Y', strtotime($equipo['fecha_adquisicion'])) : 'N/A'; ?></td>
                                 <td>
-                                    <span class="badge <?php echo ($equipo['estado'] == 'Disponible' ? 'bg-success' : ($equipo['estado'] == 'Asignado' ? 'bg-primary' : ($equipo['estado'] == 'En Reparación' ? 'bg-warning text-dark' : 'bg-danger'))); ?>">
+                                    <span class="badge <?php echo ($equipo['estado'] == 'Disponible' ? 'bg-success' : ($equipo['estado'] == 'Asignado' ? 'bg-primary' : ($equipo['estado'] == 'En Reparacion' ? 'bg-warning text-dark' : 'bg-danger'))); ?>">
                                         <?php echo htmlspecialchars($equipo['estado']); ?>
                                     </span>
                                 </td>
@@ -120,26 +129,17 @@ $resultado = $conexion->query($sql);
 $(document).ready(function() {
     // Destruir instancia previa
     if ($.fn.DataTable.isDataTable('#tabla-equipos')) { $('#tabla-equipos').DataTable().destroy(); }
-    
+
     var tablaVacia = $('#tabla-equipos tbody tr').length === 0;
 
-    var table = $('#tabla-equipos').DataTable({
+    $('#tabla-equipos').DataTable({
         "language": { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" },
         "dom": 'rt<"d-flex justify-content-between"ip>',
-        "buttons": [ 
-            { extend: 'excelHtml5', className: 'buttons-excel', exportOptions: { columns: ':visible:not(:last-child)' } },
-            { extend: 'pdfHtml5', className: 'buttons-pdf', exportOptions: { columns: ':visible:not(:last-child)' } },
-            { extend: 'print', className: 'buttons-print', exportOptions: { columns: ':visible:not(:last-child)' } }
-        ]
+        "paging": false
     });
 
     if (tablaVacia) {
         $('#export-excel, #export-pdf, #export-print').hide();
     }
-
-    // VINCULACIÓN DE EVENTOS
-    $('#export-excel').on('click', function() { table.button('.buttons-excel').trigger(); });
-    $('#export-pdf').on('click', function() { table.button('.buttons-pdf').trigger(); });
-    $('#export-print').on('click', function() { table.button('.buttons-print').trigger(); });
 });
 </script>

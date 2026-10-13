@@ -20,7 +20,7 @@ $id_asignacion = (int)$_GET['id_asignacion'];
 // Consulta para obtener todos los datos necesarios para el acta
 $sql = "SELECT 
             a.fecha_devolucion, a.observaciones_devolucion,
-            e.codigo_inventario, e.numero_serie,
+            e.codigo_inventario, e.anio_inventario, e.numero_serie,
             t.nombre AS tipo_nombre,
             ma.nombre as marca_nombre, mo.nombre as modelo_nombre,
             emp.dni, emp.nombres, emp.apellidos,
@@ -99,7 +99,8 @@ $pdf->Ln(10);
 $pdf->SetFont('Arial', 'B', 12);
 $pdf->Cell(0, 10, '2. Datos del Equipo Devuelto', 0, 1, 'L');
 $pdf->SetFont('Arial', '', 11);
-$pdf->FilaDato('Código de Inventario', $datos['codigo_inventario']);
+$pdf->FilaDato(utf8_decode('Código de Inventario'), $datos['codigo_inventario']);
+$pdf->FilaDato(utf8_decode('Año de Inventario'), $datos['anio_inventario'] ?? 'N/A');
 $pdf->FilaDato('Tipo de Equipo', $datos['tipo_nombre']);
 $pdf->FilaDato('Marca y Modelo', $datos['marca_nombre'] . ' ' . $datos['modelo_nombre']);
 $pdf->FilaDato('Número de Serie', $datos['numero_serie']);

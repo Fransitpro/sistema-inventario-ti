@@ -41,7 +41,8 @@ if (empty($id_asignacion) || empty($id_equipo) || empty($fecha_devolucion) || em
 }
 
 // Validar que el estado final sea uno de los permitidos
-if (!in_array($estado_final_equipo, ['Disponible', 'En Reparación'])) {
+// 'En Reparacion' es el valor exacto del enum en la base de datos (sin tilde)
+if (!in_array($estado_final_equipo, ['Disponible', 'En Reparacion'])) {
     $estado_final_equipo = 'Disponible'; // Seguridad
 }
 
@@ -99,8 +100,8 @@ try {
     $stmt_eq->execute();
     $stmt_eq->close();
     
-    // (Opcional) Si el estado es 'En Reparación', crear registro en la tabla 'reparaciones'
-    if ($estado_final_equipo === 'En Reparación') {
+    // (Opcional) Si el estado es 'En Reparacion', crear registro en la tabla 'reparaciones'
+    if ($estado_final_equipo === 'En Reparacion') {
         $motivo_reparacion = "Devuelto con estado '$estado_recibido'. Obs: " . $observaciones_adicionales;
         $fecha_ingreso_rep = date('Y-m-d');
         // Asumiendo que tu tabla 'reparaciones' existe

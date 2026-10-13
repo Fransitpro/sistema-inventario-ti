@@ -40,6 +40,7 @@ if ($es_admin_general) {
                 <select class="form-select" id="selectEmpleado" name="id_empleado" required <?php echo $es_admin_general ? 'disabled' : ''; ?>>
                     <option value="">Cargando...</option>
                 </select>
+                <div class="form-text">Al elegir la sucursal se preselecciona al Jefe Médico de ANCASH (★), disponible en cualquier sucursal.</div>
             </div>
 
             <div class="mb-3">
@@ -68,6 +69,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectEquipo = document.getElementById('selectEquipo');
     
     const esAdminGeneral = <?php echo $es_admin_general ? 'true' : 'false'; ?>;
+    const CARGO_JEFE_MEDICO = 'Jefe Médico';
+
+    function esJefeMedico(option) {
+        return (option.dataset.cargo || '').trim().toLowerCase() === CARGO_JEFE_MEDICO.trim().toLowerCase();
+    }
+
+    function seleccionarJefeMedico() {
+        const opciones = Array.from(selectEmpleado.options);
+        // Prioridad: jefe médico de ANCASH; si no está, cualquier jefe médico de la sucursal
+        const jefe = opciones.find(o => o.dataset.esJefeAncash === '1') || opciones.find(esJefeMedico);
+        if (jefe) {
+            selectEmpleado.value = jefe.value;
+        }
+    }
 
     function cargarDropdowns(sucursalId) {
         if (!sucursalId) {
@@ -89,11 +104,25 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(empleados => {
                 selectEmpleado.innerHTML = '<option value="">Seleccionar Empleado *</option>';
                 if (empleados && !empleados.error && empleados.length > 0) {
+                    let grupoActual = '';
                     empleados.forEach(emp => {
-                        const option = new Option(`${emp.apellidos}, ${emp.nombres} (DNI: ${emp.dni})`, emp.id);
-                        selectEmpleado.add(option);
+                        const cargo = emp.cargo_nombre || 'Sin cargo';
+                        if (cargo !== grupoActual) {
+                            grupoActual = cargo;
+                            const grupo = document.createElement('optgroup');
+                            grupo.label = cargo;
+                            grupo.dataset.cargo = cargo;
+                            selectEmpleado.appendChild(grupo);
+                        }
+                        const area = emp.area_nombre ? ` — ${emp.area_nombre}` : '';
+                        const marca = emp.es_jefe_ancash ? ' ★ Jefe Médico ANCASH' : '';
+                        const option = new Option(`${emp.apellidos}, ${emp.nombres}${area} (DNI: ${emp.dni})${marca}`, emp.id);
+                        option.dataset.cargo = cargo;
+                        option.dataset.esJefeAncash = emp.es_jefe_ancash ? '1' : '0';
+                        selectEmpleado.lastElementChild.appendChild(option);
                     });
                     selectEmpleado.disabled = false;
+                    seleccionarJefeMedico();
                 } else {
                     selectEmpleado.innerHTML = '<option value="">No hay empleados activos en esta sucursal</option>';
                 }

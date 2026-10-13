@@ -64,6 +64,63 @@ while ($row = $res_chart2->fetch_assoc()) {
     $data_equipos[] = $row['total_equipos'];
     $data_empleados[] = $row['total_empleados'];
 }
+
+// 5. Reportes: los conteos y las tarjetas se cargan desde templates/reportes.php
+// Filtro por sucursal para el JOIN de equipos
+$f_suc_equipos = ($id_sucursal_usuario !== null) ? " AND e.id_sucursal = " . (int)$id_sucursal_usuario : "";
+
+// 6. TOTALES POR TIPO DE EQUIPO (TELEFONOS, IMPRESORAS, MULTIFUNCIONES)
+function normalizarTipo($nombre) {
+    $texto = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', (string)$nombre);
+    return preg_replace('/[^A-Z0-9]/', '', strtoupper($texto));
+}
+
+$res_tipos = $conexion->query(
+    "SELECT t.id, t.nombre, COUNT(e.id) AS total
+     FROM tipos_equipo t
+     LEFT JOIN equipos e ON e.id_tipo_equipo = t.id $f_suc_equipos
+     GROUP BY t.id, t.nombre
+     ORDER BY t.nombre"
+);
+
+$tipos_disponibles = [];
+while ($fila_tipo = $res_tipos->fetch_assoc()) {
+    $tipos_disponibles[] = $fila_tipo;
+}
+
+function buscarTipo($tipos, $patrones) {
+    foreach ($tipos as $tipo) {
+        if (in_array(normalizarTipo($tipo['nombre']), $patrones, true)) return $tipo;
+    }
+    return null;
+}
+
+$totales_tipos = [
+    [
+        'etiqueta' => 'Teléfonos',
+        'patrones' => ['TELEFONO', 'TELEFONOS'],
+        'icono' => 'bi-telephone', 'color' => 'success', 'texto' => 'text-white'
+    ],
+    [
+        'etiqueta' => 'Impresoras',
+        'patrones' => ['IMPRESORA', 'IMPRESORAS', 'IMPRESOR'],
+        'icono' => 'bi-printer', 'color' => 'info', 'texto' => 'text-white'
+    ],
+    [
+        'etiqueta' => 'Multifunciones',
+        'patrones' => ['MULTIFUNCION', 'MULTIFUNCIONES', 'MULTIFUNCIONAL', 'MULTIFUNCIONALES', 'IMPRESORAMULTIFUNCION', 'ALLINONE'],
+        'icono' => 'bi-files', 'color' => 'warning', 'texto' => 'text-dark'
+    ]
+];
+
+foreach ($totales_tipos as &$indicador) {
+    $tipo = buscarTipo($tipos_disponibles, $indicador['patrones']);
+    $indicador['total'] = $tipo ? (int)$tipo['total'] : 0;
+    $indicador['existe'] = $tipo ? true : false;
+    $indicador['id_tipo'] = $tipo ? (int)$tipo['id'] : null;
+    $indicador['nombre_tipo'] = $tipo ? $tipo['nombre'] : null;
+}
+unset($indicador);
 ?>
 
 <h1 class="h2 mb-4">Dashboard</h1>
@@ -104,6 +161,41 @@ while ($row = $res_chart2->fetch_assoc()) {
             </div>
         </div>
     </div>
+</div>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h2 class="h5 m-0"><i class="bi bi-phone-vibrate me-1"></i>Totales por tipo de equipo</h2>
+</div>
+
+<div class="row g-4 mb-4">
+    <?php foreach ($totales_tipos as $indicador): ?>
+        <div class="col-md-4">
+            <?php if ($indicador['existe']): ?>
+                <a href="equipos.php?tipo_equipo=<?php echo (int)$indicador['id_tipo']; ?>" class="text-decoration-none">
+            <?php endif; ?>
+                <div class="card <?php echo $indicador['texto']; ?> bg-<?php echo $indicador['color']; ?> h-100 shadow-sm border-0">
+                    <div class="card-body d-flex justify-content-between align-items-center p-4">
+                        <div>
+                            <h6 class="card-title mb-1">Total de <?php echo $indicador['etiqueta']; ?></h6>
+                            <h2 class="display-6 fw-bold mb-0"><?php echo (int)$indicador['total']; ?></h2>
+                        </div>
+                        <i class="bi <?php echo $indicador['icono']; ?> fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            <?php if ($indicador['existe']): ?>
+                </a>
+            <?php endif; ?>
+            <p class="small text-muted mt-2 mb-0">
+                <?php if ($indicador['existe']): ?>
+                    <i class="bi bi-arrow-right"></i> Ver equipos de tipo “<?php echo $indicador['nombre_tipo']; ?>”
+                <?php else: ?>
+                    <i class="bi bi-exclamation-triangle text-warning"></i>
+                    Aún no existe el tipo “<?php echo $indicador['etiqueta']; ?>” en
+                    <a href="gestion_catalogos.php" class="text-decoration-none">Catálogos</a>
+                <?php endif; ?>
+            </p>
+        </div>
+    <?php endforeach; ?>
 </div>
 
 <div class="row">
@@ -147,6 +239,8 @@ while ($row = $res_chart2->fetch_assoc()) {
         </div>
     </div>
 </div>
+
+<?php $mostrar_titulo_reportes = false; include __DIR__ . '/../templates/reportes.php'; ?>
 
 <?php require_once '../templates/footer.php'; ?>
 

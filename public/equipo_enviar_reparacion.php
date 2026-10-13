@@ -1,39 +1,53 @@
 <?php
-require_once '../templates/header.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Validar acceso
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+require_once '../config/database.php';
 
 // ----- Lógica para procesar el formulario cuando se envía -----
+// Se ejecuta ANTES de incluir el header para poder usar header() con Location
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $id_equipo = $_POST['id_equipo'];
+    $id_equipo = (int) $_POST['id_equipo'];
     $fecha_ingreso = $_POST['fecha_ingreso'];
-    $motivo = $_POST['motivo'];
-    $proveedor = $_POST['proveedor'];
+    $motivo = trim($_POST['motivo']);
+    $proveedor = trim($_POST['proveedor']);
 
     // Iniciar transacción para asegurar que ambas consultas se ejecuten correctamente
     $conexion->begin_transaction();
     try {
-        // 1. Actualizar el estado del equipo
-        $stmt_equipo = $conexion->prepare("UPDATE equipos SET estado = 'En Reparación' WHERE id = ?");
+        // 1. Actualizar el estado del equipo (valor exacto del enum: 'En Reparacion' sin tilde)
+        $stmt_equipo = $conexion->prepare("UPDATE equipos SET estado = 'En Reparacion' WHERE id = ?");
         $stmt_equipo->bind_param("i", $id_equipo);
         $stmt_equipo->execute();
+        $stmt_equipo->close();
 
-        // 2. Insertar el registro en la nueva tabla 'reparaciones'
+        // 2. Insertar el registro en la tabla 'reparaciones'
         $stmt_reparacion = $conexion->prepare("INSERT INTO reparaciones (id_equipo, fecha_ingreso, motivo, proveedor_servicio, estado_reparacion) VALUES (?, ?, ?, ?, 'En Proceso')");
         $stmt_reparacion->bind_param("isss", $id_equipo, $fecha_ingreso, $motivo, $proveedor);
         $stmt_reparacion->execute();
+        $stmt_reparacion->close();
 
         // Si todo fue bien, confirmar los cambios
         $conexion->commit();
-        
+
         // Redirigir al listado de equipos con un mensaje de éxito
         header("Location: equipos.php?status=reparacion_iniciada");
         exit();
 
-    } catch (mysqli_sql_exception $exception) {
+    } catch (Throwable $e) {
         // Si algo falló, deshacer los cambios
         $conexion->rollback();
-        die("Error al registrar la reparación: " . $exception->getMessage());
+        $error_reparacion = "Error al registrar la reparación: " . $e->getMessage();
     }
 }
+
+require_once '../templates/header.php';
 
 // ----- Lógica para mostrar el formulario con los datos del equipo -----
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
@@ -55,6 +69,13 @@ if (!$equipo) {
     die("Equipo no encontrado.");
 }
 ?>
+
+<?php if (!empty($error_reparacion)): ?>
+    <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+        <?php echo htmlspecialchars($error_reparacion); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
 
 <h1 class="h2 mb-4">Enviar Equipo a Reparación</h1>
 

@@ -21,7 +21,7 @@ $sql = "SELECT
             emp.nombres AS emp_nombres, emp.apellidos AS emp_apellidos, emp.dni AS emp_dni,
             cargo.nombre AS cargo_nombre,
             area.nombre AS area_nombre,
-            eq.codigo_inventario, eq.numero_serie, eq.caracteristicas,
+            eq.codigo_inventario, eq.anio_inventario, eq.numero_serie, eq.caracteristicas,
             te.nombre AS tipo_equipo_nombre,
             ma.nombre AS marca_nombre,
             mo.nombre AS modelo_nombre,
@@ -107,6 +107,7 @@ $pdf->FilaDato('Tipo de Equipo', $data['tipo_equipo_nombre']);
 $pdf->FilaDato('Marca', $data['marca_nombre']);
 $pdf->FilaDato('Modelo', $data['modelo_nombre']);
 $pdf->FilaDato(utf8_decode('Código de Inventario'), $data['codigo_inventario']);
+$pdf->FilaDato(utf8_decode('Año de Inventario'), $data['anio_inventario'] ?? 'N/A');
 $pdf->FilaDato(utf8_decode('Número de Serie'), $data['numero_serie']);
 $pdf->Ln(5);
 // Características

@@ -75,7 +75,7 @@ if (!$asignacion) {
                 <label for="estado_final_equipo" class="form-label">Estado final del equipo en inventario *</label>
                 <select class="form-select" id="estado_final_equipo" name="estado_final_equipo" required>
                     <option value="Disponible" selected>Disponible (para reasignar)</option>
-                    <option value="En Reparación">En Reparación (Enviar a módulo de reparaciones)</option>
+                    <option value="En Reparacion">En Reparación (Enviar a módulo de reparaciones)</option>
                 </select>
             </div>
 

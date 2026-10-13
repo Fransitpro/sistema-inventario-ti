@@ -84,7 +84,7 @@ $cargos = $conexion->query("SELECT * FROM cargos WHERE estado = 'Activo' ORDER B
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table id="tabla-empleados" class="table table-striped table-hover" style="width:100%">
+            <table id="tabla-empleados" data-a4-titulo="Gestión de Empleados" class="table table-striped table-hover" style="width:100%">
                 <thead class="table-dark">
                     <tr>
                         <?php if ($id_sucursal_usuario === null) echo '<th>Sucursal</th>'; ?>
@@ -117,29 +117,17 @@ $cargos = $conexion->query("SELECT * FROM cargos WHERE estado = 'Activo' ORDER B
 $(document).ready(function() {
     // Destruir instancia previa
     if ($.fn.DataTable.isDataTable('#tabla-empleados')) { $('#tabla-empleados').DataTable().destroy(); }
-    
-    // Detectar si la tabla está vacía
+
     var tablaVacia = $('#tabla-empleados tbody tr').length === 0;
 
-    // Inicializar DataTables
-    var table = $('#tabla-empleados').DataTable({
+    $('#tabla-empleados').DataTable({
         "language": { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json" },
         "dom": 'rt<"d-flex justify-content-between"ip>',
-        "buttons": [ 
-            { extend: 'excelHtml5', className: 'buttons-excel', exportOptions: { columns: ':visible:not(:last-child)' } },
-            { extend: 'pdfHtml5', className: 'buttons-pdf', exportOptions: { columns: ':visible:not(:last-child)' } },
-            { extend: 'print', className: 'buttons-print', exportOptions: { columns: ':visible:not(:last-child)' } }
-        ]
+        "paging": false
     });
 
-    // Ocultar botones si no hay datos
     if (tablaVacia) {
         $('#export-excel, #export-pdf, #export-print').hide();
     }
-
-    // Vincular botones externos
-    $('#export-excel').on('click', function() { table.button('.buttons-excel').trigger(); });
-    $('#export-pdf').on('click', function() { table.button('.buttons-pdf').trigger(); });
-    $('#export-print').on('click', function() { table.button('.buttons-print').trigger(); });
 });
 </script>

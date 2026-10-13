@@ -8,6 +8,12 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
+
+// Estas paginas cambian seguido: impedir que el navegador reutilice HTML viejo
+// (evita paginas en cache que producen errores como "Incorrect column count" en DataTables)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 require_once __DIR__ . '/../config/database.php';
 
 if (!isset($_SESSION['configuracion'])) {
@@ -62,6 +68,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <li>
             <a href="equipos.php" class="nav-link <?php if(in_array($current_page, ['equipos.php', 'equipo_agregar.php', 'equipo_editar.php', 'equipo_detalle.php'])) echo 'active'; ?>">
                 <i class="bi bi-laptop"></i> Equipos
+            </a>
+        </li>
+        <li>
+            <a href="reportes.php" class="nav-link <?php if($current_page == 'reportes.php') echo 'active'; ?>">
+                <i class="bi bi-file-earmark-bar-graph"></i> Reportes
             </a>
         </li>
         <li>

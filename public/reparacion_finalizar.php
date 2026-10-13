@@ -1,36 +1,54 @@
 <?php
-require_once '../templates/header.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Validar acceso
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+require_once '../config/database.php';
 
 // --- Lógica para procesar el formulario cuando se envía (POST) ---
+// Se ejecuta ANTES de incluir el header para poder usar header() con Location
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $id_reparacion = $_POST['id_reparacion'];
-    $id_equipo = $_POST['id_equipo'];
-    $fecha_salida = $_POST['fecha_salida'];
+    $id_reparacion = (int) ($_POST['id_reparacion'] ?? 0);
+    $id_equipo = (int) ($_POST['id_equipo'] ?? 0);
+    $fecha_salida = trim($_POST['fecha_salida'] ?? '');
+    $observaciones_salida = trim($_POST['observaciones_salida'] ?? '');
     // Leer el costo, si está vacío o no es un número, guardarlo como 0.00
     $costo = !empty($_POST['costo']) && is_numeric($_POST['costo']) ? (float)$_POST['costo'] : 0.00;
-    $observaciones_salida = trim($_POST['observaciones_salida'] ?? '');
 
-    $conexion->begin_transaction();
-    try {
-        // 1. Actualizar el registro en la tabla 'reparaciones'
-        $stmt_rep = $conexion->prepare("UPDATE reparaciones SET fecha_salida = ?, costo = ?, observaciones_salida = ?, estado_reparacion = 'Finalizada' WHERE id = ?");
-        $stmt_rep->bind_param("sdsi", $fecha_salida, $costo, $observaciones_salida, $id_reparacion);
-        $stmt_rep->execute();
+    if (empty($id_reparacion) || empty($id_equipo) || empty($fecha_salida) || empty($observaciones_salida)) {
+        $error_message = "Complete la fecha de salida y las observaciones de la solución.";
+    } else {
+        $conexion->begin_transaction();
+        try {
+            // 1. Actualizar el registro en la tabla 'reparaciones'
+            $stmt_rep = $conexion->prepare("UPDATE reparaciones SET fecha_salida = ?, costo = ?, observaciones_salida = ?, estado_reparacion = 'Finalizada' WHERE id = ?");
+            $stmt_rep->bind_param("sdsi", $fecha_salida, $costo, $observaciones_salida, $id_reparacion);
+            $stmt_rep->execute();
+            $stmt_rep->close();
 
-        // 2. Actualizar el estado del equipo en la tabla 'equipos' a 'Disponible'
-        $stmt_eq = $conexion->prepare("UPDATE equipos SET estado = 'Disponible' WHERE id = ?");
-        $stmt_eq->bind_param("i", $id_equipo);
-        $stmt_eq->execute();
+            // 2. Actualizar el estado del equipo en la tabla 'equipos' a 'Disponible'
+            $stmt_eq = $conexion->prepare("UPDATE equipos SET estado = 'Disponible' WHERE id = ?");
+            $stmt_eq->bind_param("i", $id_equipo);
+            $stmt_eq->execute();
+            $stmt_eq->close();
 
-        $conexion->commit();
-        header("Location: reparaciones.php?status=reparacion_finalizada");
-        exit();
-    } catch (mysqli_sql_exception $exception) {
-        $conexion->rollback();
-        // Mostrar un mensaje de error más claro
-        $error_message = "Error al finalizar la reparación: " . $exception->getMessage();
+            $conexion->commit();
+            header("Location: reparaciones.php?status=reparacion_finalizada");
+            exit();
+        } catch (Throwable $e) {
+            $conexion->rollback();
+            // Mostrar un mensaje de error más claro
+            $error_message = "Error al finalizar la reparación: " . $e->getMessage();
+        }
     }
 }
+
+require_once '../templates/header.php';
 
 // --- Lógica para mostrar el formulario con los datos (GET) ---
 if (!isset($_GET['id_reparacion']) || !is_numeric($_GET['id_reparacion'])) {

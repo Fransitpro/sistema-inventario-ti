@@ -23,6 +23,168 @@ body {
 }
 
 /* =========================================
+   1.d BOTONES DE ACCIÓN COMPACTOS
+   ========================================= */
+/* Los botones de la columna "Acciones" se muestran más pequeños de lo
+   normal para que quepan varios en la misma celda sin ensanchar la tabla.
+   btn-sm de Bootstrap sigue siendo bastante alto para esta tabla. */
+.acciones-mini .btn-group {
+    gap: 2px;
+    /* El botón con texto puede pasar a una segunda línea, pero sin que eso
+       estire verticalmente los demás botones (que llegan a 60 px de alto). */
+    align-items: flex-start;
+}
+
+.acciones-mini .btn-group .btn {
+    align-self: flex-start;
+}
+
+.acciones-mini .btn {
+    padding: 0.1rem 0.3rem;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    border-radius: 0.2rem;
+}
+
+.acciones-mini .btn i {
+    font-size: 0.78rem;
+    line-height: 1;
+}
+
+/* Los cinco botones de acción usan el mismo ícono compacto */
+.acciones-mini .btn-success .bi-upc-scan {
+    font-size: 0.8rem;
+}
+/* =========================================
+   1.e BARRA VERTICAL PERSONALIZADA
+   ========================================= */
+/* Chrome y Edge en Windows ignoran el estilo de la barra del sistema
+   (barras "Fluent" superpuestas). Se oculta la nativa y se dibuja una
+   propia en assets/js/barra-scroll.js, que sí tiene el estilo buscado. */
+html::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+#barra-scroll-personalizada {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 14px;
+    height: 100vh;
+    z-index: 1030; /* Por debajo de los modales (1055) */
+    /* Solo se atenúa, NO se oculta con visibility:hidden. Si se ocultara del
+       todo, el ratón no podría entrar en la franja del borde derecho y la
+       barra solo volvería al desplazarse. */
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    cursor: pointer;
+}
+
+#barra-scroll-personalizada.visible,
+#barra-scroll-personalizada:hover {
+    opacity: 1;
+}
+
+/* Pista: solo visible al pasar el mouse por el borde */
+#barra-scroll-personalizada::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 14px;
+    height: 100%;
+    background-color: rgba(148, 163, 184, 0.25);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+#barra-scroll-personalizada.visible.disponible::before,
+#barra-scroll-personalizada:hover::before {
+    opacity: 1;
+}
+
+/* Cursor arrastrable */
+#barra-scroll-personalizada .bs-cursor {
+    position: absolute;
+    top: 0;
+    right: 2px;
+    width: 10px;
+    min-height: 44px;
+    border-radius: 5px;
+    background-color: #94a3b8;
+    transition: background-color 0.2s ease, width 0.2s ease, right 0.2s ease;
+}
+
+#barra-scroll-personalizada .bs-cursor:hover,
+#barra-scroll-personalizada .bs-cursor.arrastrando {
+    background-color: #475569;
+    width: 12px;
+    right: 1px;
+}
+
+/* Páginas con muy poco contenido: no tiene sentido la barra */
+#barra-scroll-personalizada:not(.disponible) {
+    display: none;
+}
+/* Firefox: si respeta scrollbar-width, NO necesita la barra dibujada por JS
+   (assets/js/barra-scroll.js lo detecta y se aparta). */
+html {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Barra horizontal de los contenedores con tabla desplazable */
+.table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.table-responsive::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
+/* También dentro de los modales, para que no se vea descuadrado */
+.modal-body {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 10px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
+/* =========================================
    2. ESTRUCTURA DEL LAYOUT (ESCRITORIO)
    ================================********* */
 /* Solo aplicamos flex row si NO es la página de login */
@@ -44,8 +206,40 @@ body:not(.login-page) {
     color: white;
     flex-shrink: 0;
     overflow-y: auto;
+    scroll-behavior: smooth; /* Desplazamiento suave dentro del menú */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.45) transparent;
     z-index: 1050; /* Por encima del contenido */
     transition: transform 0.3s ease-in-out;
+}
+
+/* Barra de scroll del sidebar (WebKit/Chrome/Edge) */
+#sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+}
+
+#sidebar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.55);
+}
+
+/* Enlace del menú que está a punto de recibir scrollIntoView */
+#sidebar .nav-link.nav-link-resaltado {
+    animation: pulso-menu 1.2s ease-out;
+}
+
+@keyframes pulso-menu {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.85); }
+    70%  { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
 }
 
 /* Contenido Principal en Escritorio */

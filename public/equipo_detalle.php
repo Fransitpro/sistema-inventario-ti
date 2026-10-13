@@ -52,6 +52,7 @@ $historial_reparaciones = $stmt_reparaciones->get_result();
                 <p><strong>Número de Serie:</strong> <?php echo htmlspecialchars($equipo['numero_serie'] ?? 'N/A'); ?></p>
             </div>
             <div class="col-md-6">
+                <p><strong>Año de Inventario:</strong> <?php echo htmlspecialchars($equipo['anio_inventario'] ?? 'N/A'); ?></p>
                 <p><strong>Fecha de Adquisición:</strong> <?php echo isset($equipo['fecha_adquisicion']) ? date('d/m/Y', strtotime($equipo['fecha_adquisicion'])) : 'N/A'; ?></p>
                 <p><strong>Sucursal:</strong> <?php echo htmlspecialchars($equipo['sucursal_nombre'] ?? 'N/A'); ?></p>
                 <p><strong>Estado Actual:</strong> 
@@ -60,7 +61,7 @@ $historial_reparaciones = $stmt_reparaciones->get_result();
                     $clase_badge = 'bg-secondary';
                     if ($estado == 'Disponible') $clase_badge = 'bg-success';
                     if ($estado == 'Asignado') $clase_badge = 'bg-primary';
-                    if ($estado == 'En Reparación') $clase_badge = 'bg-warning text-dark';
+                    if ($estado == 'En Reparacion') $clase_badge = 'bg-warning text-dark';
                     if ($estado == 'De Baja') $clase_badge = 'bg-danger';
                     ?>
                     <span class="badge <?php echo $clase_badge; ?>"><?php echo $estado; ?></span>

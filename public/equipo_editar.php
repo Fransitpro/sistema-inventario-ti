@@ -32,40 +32,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fecha = $_POST['fecha_adquisicion'];
     $proveedor = trim($_POST['proveedor']);
     $observaciones = trim($_POST['observaciones']);
-    
+    $cod_pat = mb_strtoupper(trim($_POST['cod_pat']), 'UTF-8');
+    $dimension = trim($_POST['dimension']);
+    $color = trim($_POST['color']);
+    $ip = trim($_POST['ip']);
+    $anio_inventario = trim($_POST['anio_inventario'] ?? '');
+
+    // Estado del equipo: solo se aceptan los valores del enum de la base de datos
+    $estados_permitidos = ['Disponible', 'Asignado', 'En Reparacion', 'De Baja'];
+    $estado = $_POST['estado'] ?? '';
+    if (!in_array($estado, $estados_permitidos, true)) {
+        $estado = null; // si no es válido, se conserva el estado actual
+    }
+
     if (empty($codigo) || empty($id_sucursal) || empty($id_tipo) || empty($id_marca)) {
         $mensaje = "Por favor complete los campos obligatorios.";
         $tipo_mensaje = "danger";
     } else {
-        $check = $conexion->prepare("SELECT id FROM equipos WHERE codigo_inventario = ? AND id != ?");
-        $check->bind_param("si", $codigo, $id_equipo);
-        $check->execute();
-        $check->store_result();
+        // Los codigos pueden repetirse (ej. S/S), por lo que no se validan duplicados
+        $sql = "UPDATE equipos SET 
+                codigo_inventario = ?, 
+                numero_serie = ?, 
+                ip = ?, 
+                id_sucursal = ?, 
+                id_tipo_equipo = ?, 
+                id_marca = ?, 
+                id_modelo = ?, 
+                fecha_adquisicion = ?,
+                tipo_adquisicion = ?,
+                caracteristicas = ?,
+                proveedor = ?,
+                observaciones = ?,
+                cod_pat = ?,
+                dimension = ?,
+                color = ?,
+                anio_inventario = ?,
+                estado = COALESCE(?, estado)
+                WHERE id = ?";
+        
+        $stmt = $conexion->prepare($sql);
+        $stmt->bind_param("sssiiiissssssssssi", 
+            $codigo, $serie,$ip , $id_sucursal, $id_tipo, $id_marca, $id_modelo, 
+            $fecha, $tipo_adq, $caracteristicas, $proveedor, $observaciones,
+            $cod_pat, $dimension, $color, $anio_inventario, $estado, $id_equipo
+        );
 
-        if ($check->num_rows > 0) {
-            $mensaje = "El código de inventario ya existe.";
-            $tipo_mensaje = "warning";
-        } else {
-            $sql = "UPDATE equipos SET 
-                    codigo_inventario = ?, 
-                    numero_serie = ?, 
-                    id_sucursal = ?, 
-                    id_tipo_equipo = ?, 
-                    id_marca = ?, 
-                    id_modelo = ?, 
-                    fecha_adquisicion = ?,
-                    tipo_adquisicion = ?,
-                    caracteristicas = ?,
-                    proveedor = ?,
-                    observaciones = ?
-                    WHERE id = ?";
-            
-            $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("ssiiiisssssi", 
-                $codigo, $serie, $id_sucursal, $id_tipo, $id_marca, $id_modelo, 
-                $fecha, $tipo_adq, $caracteristicas, $proveedor, $observaciones, $id_equipo
-            );
-
+        try {
             if ($stmt->execute()) {
                 header("Location: equipos.php?msg=actualizado");
                 exit();
@@ -73,9 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mensaje = "Error al actualizar: " . $conexion->error;
                 $tipo_mensaje = "danger";
             }
-            $stmt->close();
+        } catch (Throwable $e) {
+            $mensaje = "Error al actualizar: " . $e->getMessage();
+            $tipo_mensaje = "danger";
         }
-        $check->close();
+        $stmt->close();
     }
 }
 
@@ -126,10 +140,10 @@ $modelos = $stmt_modelos->get_result();
         <h5 class="mb-0 text-primary fw-bold"><i class="bi bi-pencil-square me-2"></i> Modificar Información</h5>
     </div>
     <div class="card-body p-4">
-        <form action="equipo_editar.php?id=<?php echo $id_equipo; ?>" method="POST">
+        <form action="equipo_editar.php?id=<?php echo $id_equipo; ?>" method="POST" autocomplete="off">
             <div class="row g-3">
                 
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Sucursal <span class="text-danger">*</span></label>
                     <select class="form-select" name="id_sucursal" required>
                         <option value="">Seleccione...</option>
@@ -144,20 +158,37 @@ $modelos = $stmt_modelos->get_result();
                         ?>
                     </select>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Código Inventario <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" name="codigo_inventario" value="<?php echo htmlspecialchars($equipo['codigo_inventario']); ?>" required>
                 </div>
+                <div class="col-md-4">
+                <label class="form-label fw-bold">Código Patrimonial</label>
+                <input type="text" class="form-control" name="cod_pat" maxlength="10" style="text-transform: uppercase;" placeholder="Ej: CP-001" value="<?php echo htmlspecialchars($equipo['cod_pat'] ?? ''); ?>">
+                </div>
+                
 
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Número de Serie</label>
                     <input type="text" class="form-control" name="numero_serie" value="<?php echo htmlspecialchars($equipo['numero_serie']); ?>">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-bold">Estado del Equipo <span class="text-danger">*</span></label>
-                    <select class="form-select bg-light" disabled>
-                        <option><?php echo htmlspecialchars($equipo['estado']); ?> (No se puede cambiar aquí)</option>
+                    <label class="form-label fw-bold" for="estado">Estado del Equipo <span class="text-danger">*</span></label>
+                    <select class="form-select" name="estado" id="estado" required>
+                        <?php
+                        $estados = [
+                            'Disponible'   => 'Disponible',
+                            'Asignado'     => 'Asignado',
+                            'En Reparacion' => 'En Reparación',
+                            'De Baja'      => 'De Baja'
+                        ];
+                        foreach ($estados as $valor => $texto) {
+                            $sel = ($equipo['estado'] === $valor) ? 'selected' : '';
+                            echo "<option value='" . htmlspecialchars($valor) . "' $sel>" . htmlspecialchars($texto) . "</option>";
+                        }
+                        ?>
                     </select>
+                    <div class="form-text" id="aviso-estado"></div>
                 </div>
 
                 <div class="col-md-4">
@@ -223,6 +254,26 @@ $modelos = $stmt_modelos->get_result();
                     <input type="text" class="form-control" name="caracteristicas" value="<?php echo htmlspecialchars($equipo['caracteristicas'] ?? ''); ?>">
                 </div>
 
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Dirección IP</label>
+                    <input type="text" class="form-control" name="ip" maxlength="45" value="<?php echo htmlspecialchars($equipo['ip'] ?? ''); ?>" placeholder="Ej: 192.168.1.10">
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Dimensión</label>
+                    <input type="text" class="form-control" name="dimension" maxlength="50" placeholder="Ej: 35x25x10 cm" value="<?php echo htmlspecialchars($equipo['dimension'] ?? ''); ?>">
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Color</label>
+                    <input type="text" class="form-control" name="color" maxlength="50" placeholder="Ej: Negro" value="<?php echo htmlspecialchars($equipo['color'] ?? ''); ?>">
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Año de Inventario</label>
+                    <input type="text" class="form-control" name="anio_inventario" maxlength="4" value="<?php echo htmlspecialchars($equipo['anio_inventario'] ?? ''); ?>" placeholder="Ej: 2026">
+                </div>
+
                 <div class="col-md-6">
                     <label class="form-label fw-bold">Fecha de Adquisición</label>
                     <input type="date" class="form-control" name="fecha_adquisicion" value="<?php echo $equipo['fecha_adquisicion']; ?>">
@@ -253,6 +304,22 @@ $modelos = $stmt_modelos->get_result();
 
 <script>
 $(document).ready(function() {
+    var estadoOriginal = $('#estado').val();
+    var avisos = {
+        'Asignado': 'El equipo quedará como Asignado. Si no tiene una asignación vigente, asígnalo desde Asignaciones.',
+        'En Reparacion': 'El equipo pasará a estado En Reparación sin generar un ingreso en Reparaciones.',
+        'De Baja': 'El equipo pasará a De Baja. Esto no genera el acta ni el registro de baja; usa "Dar de baja" si necesitas el documento.'
+    };
+
+    $('#estado').on('change', function() {
+        var aviso = avisos[this.value];
+        if (aviso && !confirm(aviso + '\n\n¿Desea continuar?')) {
+            $(this).val(estadoOriginal);
+            return;
+        }
+        $('#aviso-estado').text(this.value === estadoOriginal ? '' : (aviso || ''));
+    });
+
     $('#id_marca').on('change', function() {
         var idMarca = $(this).val();
         

@@ -86,6 +86,7 @@ if (!$equipo) {
                     <label for="motivo" class="form-label">Motivo de la Baja *</label>
                     <select class="form-select" id="motivo" name="motivo" required>
                         <option value="">Seleccione un motivo...</option>
+                        <option value="Desfase tecnológico">Desfase tecnológico</option>
                         <option value="Dañado sin reparación">Dañado sin reparación</option>
                         <option value="Obsoleto">Obsoleto</option>
                         <option value="Perdido / Robado">Perdido / Robado</option>

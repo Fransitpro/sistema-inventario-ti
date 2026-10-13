@@ -29,6 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $apellidos = trim($_POST['apellidos']);
     $id_area = $_POST['id_area'];
     $id_cargo = $_POST['id_cargo']; // Este vendrá actualizado del select dinámico
+    $correo = trim($_POST['correo']);
+    $telefono = trim($_POST['telefono']);
+    $celular = trim($_POST['celular']);
     $estado = $_POST['estado'];
 
     if (empty($dni) || empty($nombres) || empty($apellidos) || empty($id_sucursal)) {
@@ -51,11 +54,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     apellidos = ?, 
                     id_area = ?, 
                     id_cargo = ?, 
+                    correo = ?,
+                    telefono = ?,
+                    celular = ?,
                     estado = ? 
                     WHERE id = ?";
-            
             $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("isssiisi", $id_sucursal, $dni, $nombres, $apellidos, $id_area, $id_cargo, $estado, $id_empleado);
+            $stmt->bind_param(
+                "isssiissssi",
+                $id_sucursal,
+                $dni,
+                $nombres,
+                $apellidos,
+                $id_area,
+                $id_cargo,
+                $correo,
+                $telefono,
+                $celular,
+                $estado,
+                $id_empleado
+                );
 
             if ($stmt->execute()) {
                 header("Location: empleados.php?msg=actualizado");
@@ -147,7 +165,18 @@ $cargos = $stmt_cargos->get_result();
                     <label class="form-label fw-bold">Apellidos <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" name="apellidos" value="<?php echo htmlspecialchars($empleado['apellidos']); ?>" required>
                 </div>
-
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Correo</label>
+                    <input type="email" class="form-control" name="correo" maxlength="50" autocomplete="off" value="<?php echo htmlspecialchars($empleado['correo'] ?? ''); ?>">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Teléfono</label>
+                    <input type="text" class="form-control" name="telefono" maxlength="50" autocomplete="off" value="<?php echo htmlspecialchars($empleado['telefono'] ?? ''); ?>">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Celular</label> 
+                    <input type="text" class="form-control" name="celular" maxlength="50" autocomplete="off" value="<?php echo htmlspecialchars($empleado['celular'] ?? ''); ?>">
+                </div>
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Área</label>
                     <select class="form-select" name="id_area" id="id_area" required>
