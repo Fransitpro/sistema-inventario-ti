@@ -88,11 +88,29 @@ while ($fila_tipo = $res_tipos->fetch_assoc()) {
     $tipos_disponibles[] = $fila_tipo;
 }
 
-function buscarTipo($tipos, $patrones) {
+// Una tipo entra en la tarjeta si su nombre coincide con alguno de los
+// patrones. Se acepta el nombre exacto, el que empieza por el patron y
+// tambien el que lo lleva en medio: "Impresora Multifuncional HP" tiene que
+// caer en Multifunciones, no solo "Multifuncional".
+function coincideTipo($nombre, $patron) {
+    if ($nombre === $patron) { return true; }
+    return strpos($nombre, $patron) !== false;
+}
+
+// Agrupa varios tipos del catálogo bajo un mismo indicador.
+// Por ejemplo, todas las "SILLA ..." o "MESA ..." cuentan como un solo grupo.
+function agruparTipos($tipos, $patrones) {
+    $coincidentes = [];
     foreach ($tipos as $tipo) {
-        if (in_array(normalizarTipo($tipo['nombre']), $patrones, true)) return $tipo;
+        $nombre = normalizarTipo($tipo['nombre']);
+        foreach ($patrones as $patron) {
+            if (coincideTipo($nombre, $patron)) {
+                $coincidentes[] = $tipo;
+                break;
+            }
+        }
     }
-    return null;
+    return $coincidentes;
 }
 
 $totales_tipos = [
@@ -108,58 +126,112 @@ $totales_tipos = [
     ],
     [
         'etiqueta' => 'Multifunciones',
-        'patrones' => ['MULTIFUNCION', 'MULTIFUNCIONES', 'MULTIFUNCIONAL', 'MULTIFUNCIONALES', 'IMPRESORAMULTIFUNCION', 'ALLINONE'],
-        'icono' => 'bi-files', 'color' => 'warning', 'texto' => 'text-dark'
+        // Un multifuncion suele venir con el tipo de impresora delante
+        // ("Impresora Multifuncional HP"), asi que se busca la palabra en
+        // cualquier parte del nombre, no solo al principio.
+        'patrones' => ['MULTIFUNCIONAL', 'MULTIFUNCION', 'IMPRESORAMULTIFUNCIONAL', 'ALLINONE', 'MULTIFUNCIONHP'],
+        'icono' => 'bi-files', 'color' => 'warning', 'texto' => 'text-dark',
+        // Se resuelve antes que Impresoras: si no, "Impresora Multifuncional"
+        // se contaria tambien como impresora.
+        'prioridad' => 1
+    ],
+    [
+        'etiqueta' => 'Mesas',
+        'patrones' => ['MESA', 'MESAS'],
+        'icono' => 'bi-table', 'color' => 'secondary', 'texto' => 'text-white'
+    ],
+    [
+        'etiqueta' => 'Sillas',
+        'patrones' => ['SILLA', 'SILLAS'],
+        'icono' => 'bi-chair', 'color' => 'danger', 'texto' => 'text-white'
+    ],
+    [
+        'etiqueta' => 'Escritorios',
+        'patrones' => ['ESCRITORIO', 'ESCRITORIOS'],
+        'icono' => 'bi-display', 'color' => 'dark', 'texto' => 'text-white'
     ]
 ];
 
-foreach ($totales_tipos as &$indicador) {
-    $tipo = buscarTipo($tipos_disponibles, $indicador['patrones']);
-    $indicador['total'] = $tipo ? (int)$tipo['total'] : 0;
-    $indicador['existe'] = $tipo ? true : false;
-    $indicador['id_tipo'] = $tipo ? (int)$tipo['id'] : null;
-    $indicador['nombre_tipo'] = $tipo ? $tipo['nombre'] : null;
+foreach ($totales_tipos as $pos => $indicador) {
+    // Las tarjetas se dibujan en el orden de la lista, pero los tipos se
+    // reparten segun la prioridad: cada tipo entra solo en la primera tarjeta
+    // que lo reclame. Asi "Impresora Multifuncional" suma en Multifunciones y
+    // no vuelve a sumar en Impresoras.
+    $totales_tipos[$pos]['total'] = 0;
+    $totales_tipos[$pos]['existe'] = false;
+    $totales_tipos[$pos]['ids'] = [];
+    $totales_tipos[$pos]['nombres'] = [];
 }
-unset($indicador);
+
+$reparto = $totales_tipos;
+usort($reparto, function ($a, $b) {
+    $pa = $a['prioridad'] ?? 99;
+    $pb = $b['prioridad'] ?? 99;
+    return $pa === $pb ? 0 : ($pa < $pb ? -1 : 1);
+});
+
+$usados = [];
+foreach ($reparto as $reparto_indicador) {
+    $pos = array_search($reparto_indicador, $totales_tipos, true);
+    $grupo = agruparTipos($tipos_disponibles, $reparto_indicador['patrones']);
+
+    foreach ($grupo as $tipo) {
+        // Un tipo ya reclamado por una tarjeta mas especifica no se cuenta dos veces.
+        if (isset($usados[$tipo['id']])) { continue; }
+        $usados[$tipo['id']] = true;
+
+        $totales_tipos[$pos]['total'] += (int)$tipo['total'];
+        $totales_tipos[$pos]['nombres'][] = $tipo['nombre'];
+        $totales_tipos[$pos]['ids'][] = (int)$tipo['id'];
+    }
+
+    $totales_tipos[$pos]['existe'] = count($totales_tipos[$pos]['ids']) > 0;
+}
 ?>
 
 <h1 class="h2 mb-4">Dashboard</h1>
 
 <div class="row g-4 mb-4">
     <div class="col-md-4">
-        <div class="card text-white bg-primary h-100 shadow-sm border-0">
-            <div class="card-body d-flex justify-content-between align-items-center p-4">
-                <div>
-                    <h6 class="card-title mb-1">Total de Equipos</h6>
-                    <h2 class="display-6 fw-bold mb-0"><?php echo $total_equipos; ?></h2>
+        <a href="equipos.php" class="text-decoration-none">
+            <div class="card text-white bg-primary h-100 shadow-sm border-0">
+                <div class="card-body d-flex justify-content-between align-items-center p-4">
+                    <div>
+                        <h6 class="card-title mb-1">Total de Equipos</h6>
+                        <h2 class="display-6 fw-bold mb-0"><?php echo $total_equipos; ?></h2>
+                    </div>
+                    <i class="bi bi-server fs-1 opacity-50"></i>
                 </div>
-                <i class="bi bi-server fs-1 opacity-50"></i>
             </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card text-dark bg-warning h-100 shadow-sm border-0">
-            <div class="card-body d-flex justify-content-between align-items-center p-4">
-                <div>
-                    <h6 class="card-title mb-1">Equipos Asignados</h6>
-                    <h2 class="display-6 fw-bold mb-0"><?php echo $total_asignados; ?></h2>
-                </div>
-                <i class="bi bi-person-check fs-1 opacity-50"></i>
-            </div>
-        </div>
+        </a>
     </div>
 
     <div class="col-md-4">
-        <div class="card text-white bg-success h-100 shadow-sm border-0">
-            <div class="card-body d-flex justify-content-between align-items-center p-4">
-                <div>
-                    <h6 class="card-title mb-1">Equipos Disponibles</h6>
-                    <h2 class="display-6 fw-bold mb-0"><?php echo $total_disponibles; ?></h2>
+        <a href="equipos.php?estado=Asignado" class="text-decoration-none">
+            <div class="card text-dark bg-warning h-100 shadow-sm border-0">
+                <div class="card-body d-flex justify-content-between align-items-center p-4">
+                    <div>
+                        <h6 class="card-title mb-1">Equipos Asignados</h6>
+                        <h2 class="display-6 fw-bold mb-0"><?php echo $total_asignados; ?></h2>
+                    </div>
+                    <i class="bi bi-person-check fs-1 opacity-50"></i>
                 </div>
-                <i class="bi bi-box-seam fs-1 opacity-50"></i>
             </div>
-        </div>
+        </a>
+    </div>
+
+    <div class="col-md-4">
+        <a href="equipos.php?estado=Disponible" class="text-decoration-none">
+            <div class="card text-white bg-success h-100 shadow-sm border-0">
+                <div class="card-body d-flex justify-content-between align-items-center p-4">
+                    <div>
+                        <h6 class="card-title mb-1">Equipos Disponibles</h6>
+                        <h2 class="display-6 fw-bold mb-0"><?php echo $total_disponibles; ?></h2>
+                    </div>
+                    <i class="bi bi-box-seam fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </a>
     </div>
 </div>
 
@@ -169,9 +241,10 @@ unset($indicador);
 
 <div class="row g-4 mb-4">
     <?php foreach ($totales_tipos as $indicador): ?>
+        <?php $tipos_sel = implode(',', $indicador['ids']); ?>
         <div class="col-md-4">
             <?php if ($indicador['existe']): ?>
-                <a href="equipos.php?tipo_equipo=<?php echo (int)$indicador['id_tipo']; ?>" class="text-decoration-none">
+                <a href="equipos.php?tipo_equipo=<?php echo $tipos_sel; ?>" class="text-decoration-none">
             <?php endif; ?>
                 <div class="card <?php echo $indicador['texto']; ?> bg-<?php echo $indicador['color']; ?> h-100 shadow-sm border-0">
                     <div class="card-body d-flex justify-content-between align-items-center p-4">
@@ -187,7 +260,7 @@ unset($indicador);
             <?php endif; ?>
             <p class="small text-muted mt-2 mb-0">
                 <?php if ($indicador['existe']): ?>
-                    <i class="bi bi-arrow-right"></i> Ver equipos de tipo “<?php echo $indicador['nombre_tipo']; ?>”
+                    <i class="bi bi-arrow-right"></i> Ver equipos de tipo “<?php echo htmlspecialchars(implode('”, “', $indicador['nombres'])); ?>”
                 <?php else: ?>
                     <i class="bi bi-exclamation-triangle text-warning"></i>
                     Aún no existe el tipo “<?php echo $indicador['etiqueta']; ?>” en
@@ -261,7 +334,8 @@ document.addEventListener("DOMContentLoaded", function() {
                     label: 'Cantidad',
                     data: <?php echo json_encode($tipos_data); ?>,
                     backgroundColor: [
-                        '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#6366f1'
+                        '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#6366f1',
+                        '#ec4899', '#14b8a6', '#f97316', '#64748b', '#a855f7', '#0ea5e9'
                     ],
                     borderWidth: 2,
                     hoverOffset: 4

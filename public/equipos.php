@@ -30,7 +30,18 @@ if (!empty($codigo_normalizado)) {
 }
 if (!empty($filtro_serie)) $where_clauses[] = "e.numero_serie LIKE '%" . $conexion->real_escape_string($filtro_serie) . "%'";
 if (!empty($filtro_sucursal)) $where_clauses[] = "e.id_sucursal = " . (int)$filtro_sucursal;
-if (!empty($filtro_tipo)) $where_clauses[] = "e.id_tipo_equipo = " . (int)$filtro_tipo;
+if (!empty($filtro_tipo)) {
+    // Acepta uno o varios IDs separados por coma (grupos del dashboard)
+    $ids_tipo = array_values(array_filter(array_map('intval', explode(',', $filtro_tipo))));
+    if (count($ids_tipo) === 1) {
+        $where_clauses[] = "e.id_tipo_equipo = " . $ids_tipo[0];
+    } elseif (count($ids_tipo) > 1) {
+        $where_clauses[] = "e.id_tipo_equipo IN (" . implode(',', $ids_tipo) . ")";
+    }
+}
+$ids_tipo_sel = !empty($filtro_tipo)
+    ? array_filter(array_map('intval', explode(',', $filtro_tipo)))
+    : [];
 if (!empty($filtro_marca)) $where_clauses[] = "e.id_marca = " . (int)$filtro_marca;
 if (!empty($filtro_estado)) $where_clauses[] = "e.estado = '" . $conexion->real_escape_string($filtro_estado) . "'";
 
@@ -58,7 +69,7 @@ $resultado = $conexion->query($sql);
                 <?php if (!isset($_SESSION['user_sucursal_id']) || $_SESSION['user_sucursal_id'] === null): ?>
                 <div class="col-md-3"><label class="form-label">Sucursal</label><select class="form-select form-select-sm" name="sucursal"><option value="">Todas</option><?php if ($sucursales) { mysqli_data_seek($sucursales, 0); while($s = $sucursales->fetch_assoc()) { echo "<option value='{$s['id']}' ".($filtro_sucursal == $s['id'] ? 'selected' : '').">".htmlspecialchars($s['nombre'])."</option>"; }} ?></select></div>
                 <?php endif; ?>
-                <div class="col-md-3"><label class="form-label">Tipo de Equipo</label><select class="form-select form-select-sm" name="tipo_equipo"><option value="">Todos</option><?php if ($tipos_equipo) { mysqli_data_seek($tipos_equipo, 0); while($t = $tipos_equipo->fetch_assoc()) { echo "<option value='{$t['id']}' ".($filtro_tipo == $t['id'] ? 'selected' : '').">".htmlspecialchars($t['nombre'])."</option>"; }} ?></select></div>
+                <div class="col-md-3"><label class="form-label">Tipo de Equipo</label><select class="form-select form-select-sm" name="tipo_equipo"><option value="">Todos</option><?php if ($tipos_equipo) { mysqli_data_seek($tipos_equipo, 0); while($t = $tipos_equipo->fetch_assoc()) { echo "<option value='{$t['id']}' ".(in_array((int)$t['id'], $ids_tipo_sel, true) ? 'selected' : '').">".htmlspecialchars($t['nombre'])."</option>"; }} ?></select></div>
                 <div class="col-md-3"><label class="form-label">Marca</label><select class="form-select form-select-sm" name="marca"><option value="">Todas</option><?php if ($marcas) { mysqli_data_seek($marcas, 0); while($m = $marcas->fetch_assoc()) { echo "<option value='{$m['id']}' ".($filtro_marca == $m['id'] ? 'selected' : '').">".htmlspecialchars($m['nombre'])."</option>"; }} ?></select></div>
                 <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select form-select-sm" name="estado"><option value="">Todos</option><option value="Disponible" <?php if($filtro_estado == 'Disponible') echo 'selected'; ?>>Disponible</option><option value="Asignado" <?php if($filtro_estado == 'Asignado') echo 'selected'; ?>>Asignado</option><option value="En Reparacion" <?php if($filtro_estado == 'En Reparacion') echo 'selected'; ?>>En Reparación</option>
 <option value="De Baja" <?php if($filtro_estado == 'De Baja') echo 'selected'; ?>>De Baja</option></select></div>

@@ -19,6 +19,12 @@ body {
     background-color: var(--bg-body);
     color: var(--text-main);
     margin: 0;
+}
+
+/* El scroll horizontal se bloquea en <html>, no en <body>. Ponerlo en el body
+   convierte al body en contenedor de desplazamiento y las barras "sticky"
+   dejan de funcionar contra la ventana (se pegarian al body, que no se mueve). */
+html {
     overflow-x: hidden; /* Evita el scroll horizontal */
 }
 
@@ -178,6 +184,53 @@ html {
     background-color: #94a3b8;
 }
 
+/* =========================================
+    1.e BARRA HORIZONTAL DE LAS TABLAS ANCHAS
+    ========================================= */
+/* Wrapper que crea barra-horizontal.js: envuelve la tabla para poder pegar la
+   barra al pie de la pantalla con "sticky", de modo que siga a la vista
+   aunque la tabla sea larguísima. */
+.contenedor-tabla-desplazable {
+    position: relative;
+}
+
+.barra-horizontal {
+    position: sticky;
+    top: 0;
+    z-index: 7;
+    height: 14px;
+    margin-bottom: 6px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.barra-horizontal .bh-cursor {
+    position: absolute;
+    top: 2px;
+    left: 0;
+    height: 8px;
+    min-width: 36px;
+    background: #94a3b8;
+    border-radius: 4px;
+    cursor: grab;
+}
+
+.barra-horizontal .bh-cursor:hover { background: #64748b; }
+
+.barra-horizontal .bh-cursor.arrastrando {
+    cursor: grabbing;
+    background: var(--primary-blue);
+}
+
+.barra-horizontal.oculta { display: none; }
+
+/* En impresión la barra no sirve de nada y descoloca el papel. */
+@media print {
+    .barra-horizontal { display: none !important; }
+}
+
 /* También dentro de los modales, para que no se vea descuadrado */
 .modal-body {
     scrollbar-width: thin;
@@ -266,7 +319,11 @@ body:not(.login-page) {
     flex-grow: 1;
     padding: 30px;
     width: calc(100% - var(--sidebar-width));
-    overflow-y: auto;
+    /* Sin "overflow-y: auto": esta caja no tiene alto maximo, asi que nunca
+       llega a desplazarse, pero el hecho de declararlo la convierte en
+       contenedor de scroll y las barras "sticky" (la horizontal de las tablas
+       anchas) se quedarian pegadas a su borde, fuera de la pantalla.
+       Quien se desplaza es la pagina, asi que se deja overflow visible. */
     transition: margin-left 0.3s ease-in-out;
 }
 

@@ -11,7 +11,7 @@ $filtro_estado = $_GET['estado'] ?? 'Activa';
 $filtro_texto = trim($_GET['texto'] ?? '');
 $filtro_tipo = $_GET['tipo'] ?? '';
 $filtro_marca = $_GET['marca'] ?? '';
-$filtro_estado_equipo = $_GET['estado_equipo'] ?? '';
+$filtro_estado_bien = $_GET['estado_bien'] ?? '';
 $filtro_fecha_desde = $_GET['fecha_desde'] ?? '';
 $filtro_fecha_hasta = $_GET['fecha_hasta'] ?? '';
 
@@ -23,7 +23,7 @@ $sql = "SELECT
             emp.dni, emp.nombres, emp.apellidos, emp.estado AS estado_empleado,
             cg.nombre AS cargo_nombre,
             ar.nombre AS area_nombre,
-            e.codigo_inventario, e.cod_pat, e.numero_serie, e.estado AS estado_equipo,
+            e.codigo_inventario, e.cod_pat, e.numero_serie, e.estado_bien,
             te.nombre AS tipo_nombre,
             ma.nombre AS marca_nombre,
             mo.nombre AS modelo_nombre,
@@ -91,10 +91,10 @@ if ($filtro_marca !== '') {
     $params[] = (int)$filtro_marca;
 }
 
-if ($filtro_estado_equipo !== '') {
-    $sql .= " AND e.estado = ?";
+if ($filtro_estado_bien !== '') {
+    $sql .= " AND e.estado_bien = ?";
     $types .= "s";
-    $params[] = $filtro_estado_equipo;
+    $params[] = $filtro_estado_bien;
 }
 
 if ($filtro_fecha_desde !== '') {
@@ -159,6 +159,20 @@ $hay_filas = $total_equipos > 0;
     /* Reporte centrado: encabezados y celdas alineados al centro */
     #tabla-inventario-empleado th,
     #tabla-inventario-empleado td { text-align: center; }
+
+    /* La tabla tiene 13 columnas y no cabe en la pantalla. Con letra mas
+       pequena baja de 1287 px a ~1150 px, asi que se desplazan un par de
+       columnas en vez de seis. La barra horizontal la pone barra-horizontal.js
+       en todas las tablas del sistema. */
+    .tabla-inventario-desplazable table { font-size: 0.8rem; }
+
+    /* Encabezado fijo: al bajar se sigue viendo cuál es cada columna. Queda
+       justo debajo de la barra horizontal, que va pegada arriba. */
+    .tabla-inventario-desplazable thead th {
+        position: sticky;
+        top: 22px;
+        z-index: 2;
+    }
 </style>
 
 <h1 class="h2 mb-1 text-center">CARGO PERSONAL POR ASIGNACIÓN DE BIENES EN USO</h1>
@@ -243,13 +257,12 @@ $hay_filas = $total_equipos > 0;
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Estado del equipo</label>
-                <select class="form-select form-select-sm" name="estado_equipo">
+                <label class="form-label">Estado del bien</label>
+                <select class="form-select form-select-sm" name="estado_bien">
                     <option value="">Todos</option>
-                    <option value="Disponible" <?php echo ($filtro_estado_equipo === 'Disponible' ? 'selected' : ''); ?>>Disponible</option>
-                    <option value="Asignado" <?php echo ($filtro_estado_equipo === 'Asignado' ? 'selected' : ''); ?>>Asignado</option>
-                    <option value="En Reparacion" <?php echo ($filtro_estado_equipo === 'En Reparacion' ? 'selected' : ''); ?>>En Reparación</option>
-                    <option value="De Baja" <?php echo ($filtro_estado_equipo === 'De Baja' ? 'selected' : ''); ?>>De Baja</option>
+                    <option value="Bueno" <?php echo ($filtro_estado_bien === 'Bueno' ? 'selected' : ''); ?>>Bueno</option>
+                    <option value="Regular" <?php echo ($filtro_estado_bien === 'Regular' ? 'selected' : ''); ?>>Regular</option>
+                    <option value="Malo" <?php echo ($filtro_estado_bien === 'Malo' ? 'selected' : ''); ?>>Malo</option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -279,7 +292,7 @@ $hay_filas = $total_equipos > 0;
 
 <div class="card">
     <div class="card-body">
-        <div class="table-responsive">
+        <div class="table-responsive tabla-inventario-desplazable">
             <table id="tabla-inventario-empleado" data-a4-titulo="CARGO PERSONAL POR ASIGNACIÓN DE BIENES EN USO" data-a4-fila="left:DISTRITO FISCAL|center:LOCAL" data-a4-subtitulo="NOMBRES Y APELLIDOS|DNI|CARGO|DEPENDENCIA" data-a4-centrar="1" class="table table-striped table-hover text-center" style="width:100%">
                 <thead class="table-dark">
                     <tr>
@@ -293,7 +306,7 @@ $hay_filas = $total_equipos > 0;
                         <th>Marca</th>
                         <th>Modelo</th>
                         <th>N° Serie</th>
-                        <th>Estado Equipo</th>
+                        <th>Estado del Bien</th>
                         <th>Fecha Entrega</th>
                         <th>Estado Asignación</th>
                     </tr>
@@ -316,11 +329,14 @@ $hay_filas = $total_equipos > 0;
                                 <td><?php echo htmlspecialchars($fila['modelo_nombre'] ?? 'N/A'); ?></td>
                                 <td><?php echo htmlspecialchars($fila['numero_serie']); ?></td>
                                 <td>
-                                    <span class="badge <?php
-                                        echo $fila['estado_equipo'] === 'Disponible' ? 'bg-secondary'
-                                            : ($fila['estado_equipo'] === 'Asignado' ? 'bg-primary'
-                                            : ($fila['estado_equipo'] === 'En Reparacion' ? 'bg-warning text-dark' : 'bg-dark'));
-                                    ?>"><?php echo htmlspecialchars($fila['estado_equipo']); ?></span>
+                                    <?php if ($fila['estado_bien']): ?>
+                                        <span class="badge <?php
+                                            echo $fila['estado_bien'] === 'Bueno' ? 'bg-success'
+                                                : ($fila['estado_bien'] === 'Regular' ? 'bg-warning text-dark' : 'bg-danger');
+                                        ?>"><?php echo htmlspecialchars($fila['estado_bien']); ?></span>
+                                    <?php else: ?>
+                                        <span class="text-muted">Sin evaluar</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td><?php echo $fila['fecha_entrega'] ? date('d/m/Y', strtotime($fila['fecha_entrega'])) : '—'; ?></td>
                                 <td>
@@ -379,5 +395,6 @@ $(document).ready(function () {
     <?php if (!$hay_filas): ?>
         $('#export-excel, #export-pdf, #export-print').hide();
     <?php endif; ?>
+
 });
 </script>

@@ -14,6 +14,7 @@
 <script src="assets/js/exportar-a4.js?ver=<?php echo time(); ?>"></script>
 
 <script src="assets/js/barra-scroll.js?ver=<?php echo time(); ?>"></script>
+<script src="assets/js/barra-horizontal.js?ver=<?php echo time(); ?>"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const menuToggle = document.getElementById('menu-toggle');
